@@ -47,6 +47,7 @@ defmodule FrameExample.MixProject do
 
       # Dependencies for all targets except :host
       {:nerves_pack, "~> 0.7.1", targets: @all_targets},
+      {:circuits_i2c, "~> 2.0", targets: @all_targets},
 
       # Dependencies for specific targets
       {:nerves_system_rk3326_frame156,
