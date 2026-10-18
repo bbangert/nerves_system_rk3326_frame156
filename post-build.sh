@@ -5,6 +5,10 @@ set -e
 # Copy the fwup includes to the images dir
 cp -rf $NERVES_DEFCONFIG_DIR/fwup_include $BINARIES_DIR
 
+# The vendor U-Boot appends init=/init to the kernel command line. (Made
+# here rather than in rootfs_overlay because Hex rejects absolute symlinks.)
+ln -sfn /sbin/init $TARGET_DIR/init
+
 # Create the fwup ops script to handling MicroSD/eMMC operations at runtime
 # NOTE: revert.fw is the previous, more limited version of this. ops.fw is
 #       backwards compatible.
