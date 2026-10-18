@@ -1,0 +1,66 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] package/mesa3d: build panfrost without target LLVM and Clang
+
+Mesa already gets its CLC and precompile tools from host-mesa3d
+(-Dmesa-clc=system -Dprecomp-compiler=system), so the target build needs
+neither LLVM, Clang, libclc nor the SPIR-V LLVM translator. Pulling them
+in adds tens of gigabytes and hours to the build, and libLLVM to the
+rootfs.
+
+Without the OpenCL option nothing selects BR2_PACKAGE_LLVM_RTTI, so
+host-llvm is built without RTTI and host-mesa3d has to match.
+
+---
+--- a/package/mesa3d/Config.in
++++ b/package/mesa3d/Config.in
+@@ -23,8 +23,6 @@
+ 
+ config BR2_PACKAGE_MESA3D_NEEDS_PRECOMP_COMPILER
+ 	bool
+-	select BR2_PACKAGE_MESA3D_OPENCL
+-	select BR2_PACKAGE_SPIRV_LLVM_TRANSLATOR
+ 	select BR2_PACKAGE_SPIRV_TOOLS
+ 
+ config BR2_PACKAGE_MESA3D_LLVM
+@@ -207,16 +205,12 @@
+ config BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_PANFROST
+ 	bool "Gallium panfrost driver"
+ 	depends on BR2_TOOLCHAIN_HAS_SYNC_4 || !BR2_PACKAGE_XORG7 # libxshmfence
+-	depends on BR2_PACKAGE_MESA3D_LLVM
+ 	select BR2_PACKAGE_MESA3D_GALLIUM_DRIVER
+ 	select BR2_PACKAGE_MESA3D_NEEDS_PRECOMP_COMPILER
+ 	select BR2_PACKAGE_MESA3D_RUSTICL_SUPPORTED_DRIVER
+ 	help
+ 	  Mesa driver for ARM Mali Midgard and Bifrost GPUs.
+ 
+-comment "panfrost driver needs llvm"
+-	depends on !BR2_PACKAGE_MESA3D_LLVM
+-
+ config BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_R300
+ 	bool "Gallium Radeon R300 driver"
+ 	depends on BR2_i386 || BR2_x86_64
+--- a/package/mesa3d/mesa3d.mk
++++ b/package/mesa3d/mesa3d.mk
+@@ -180,7 +180,7 @@
+ 
+ ifeq ($(BR2_PACKAGE_MESA3D_NEEDS_PRECOMP_COMPILER),y)
+ MESA3D_CONF_OPTS += -Dmesa-clc=system -Dprecomp-compiler=system
+-MESA3D_DEPENDENCIES += host-mesa3d spirv-llvm-translator spirv-tools
++MESA3D_DEPENDENCIES += host-mesa3d spirv-tools
+ endif
+ 
+ ifeq ($(BR2_PACKAGE_MESA3D_VULKAN_DRIVER),)
+@@ -354,6 +354,13 @@
+ 	-Dglx=disabled \
+ 	-Dvulkan-drivers=""
+ 
++# host-llvm only has RTTI when a target package asks for it
++ifeq ($(BR2_PACKAGE_LLVM_RTTI),y)
++HOST_MESA3D_CONF_OPTS += -Dcpp_rtti=true
++else
++HOST_MESA3D_CONF_OPTS += -Dcpp_rtti=false
++endif
++
+ HOST_MESA3D_DEPENDENCIES = \
+ 	host-libclc \
+ 	host-libdrm \
