@@ -1,0 +1,29 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] mfd: rk8xx: allow boards to opt out of PMIC restart
+
+On RK809/RK817 the driver restarts the board with the PMIC's DEV_RST
+bit, at a higher priority than PSCI. That power-cycles the SoC and
+clears the PMU GRF reboot mode register, so "reboot loader" and
+"reboot recovery" never reach the vendor U-Boot on the Pastigio
+FRAME156. The stock vendor kernel restarts through PSCI, which keeps
+the register. Add "rockchip,no-pmic-restart" to skip the PMIC restart
+handler; power-off still goes through the PMIC.
+
+---
+--- a/drivers/mfd/rk8xx-core.c
++++ b/drivers/mfd/rk8xx-core.c
+@@ -881,6 +881,14 @@
+ 			return dev_err_probe(dev, ret,
+ 					     "failed to register poweroff handler\n");
+ 
++		/*
++		 * A PMIC reset power-cycles the SoC and clears the reboot
++		 * mode register in the PMU GRF, so boards whose bootloader
++		 * acts on that register restart through PSCI instead.
++		 */
++		if (device_property_read_bool(dev, "rockchip,no-pmic-restart"))
++			return 0;
++
+ 		switch (rk808->variant) {
+ 		case RK809_ID:
+ 		case RK817_ID:

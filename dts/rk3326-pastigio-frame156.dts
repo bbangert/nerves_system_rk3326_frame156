@@ -179,6 +179,8 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pmic_int>;
 		system-power-controller;
+		/* restart through PSCI so the reboot mode flag survives */
+		rockchip,no-pmic-restart;
 		wakeup-source;
 		#clock-cells = <1>;
 
