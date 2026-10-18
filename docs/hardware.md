@@ -84,6 +84,11 @@ numeric phandles back into labels. GPIO numbers below are
 - The USB-A port is host-only, behind `u2phy_host`, with VBUS from
   `vcc5v0_host` (RK809 SWITCH_REG1).
 - USB IDs: ADB `2211:0006` (or `18d1:0006`), rockusb `2207:330d`.
+- Running Nerves needs the frame's own power supply plugged in as well.
+  On laptop USB power alone, U-Boot and the kernel come up, but the board
+  resets about 1-2 s after the BEAM starts (all four cores plus the
+  backlight), and then keeps looping. While it looped, the laptop logged
+  "over-current condition" on every one of its USB ports.
 
 ## Power: RK809 on i2c0 at 0x20 (interrupt GPIO0_B2)
 

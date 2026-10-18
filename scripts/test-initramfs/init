@@ -56,6 +56,20 @@ fi
   done
 ) &
 
+# Bring-up hook: `touch /tmp/switch-root` hands PID 1 to the Nerves root
+# filesystem (erlinit) on rootfs A, keeping this kernel and its USB gadget,
+# so the kernel console on ttyGS0 shows everything that happens next.
 while true; do
-  sleep 3600
+  if [ -e /tmp/switch-root ]; then
+    log "switching root to /dev/mmcblk0p7"
+    mkdir -p /newroot
+    if mount -t squashfs -o ro /dev/mmcblk0p7 /newroot; then
+      umount /sys/kernel/config /sys/kernel/debug /sys/fs/pstore /dev/pts 2>/dev/null
+      # erlinit expects the devtmpfs the kernel mounts on a real root
+      mount --move /dev /newroot/dev
+      exec switch_root /newroot /sbin/init
+    fi
+    rm -f /tmp/switch-root
+  fi
+  sleep 1
 done

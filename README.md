@@ -63,7 +63,9 @@ the USB-C cable to a computer, for loader mode. See
 ## Getting into the frame
 
 The USB-C port is the OTG port. Use a USB-A-to-C cable; C-to-C doesn't
-enumerate.
+enumerate. Plug in the frame's own power supply too: laptop USB power
+alone browns the board out once Nerves starts, which looks like a boot
+loop.
 
 From stock Android (enable Frameo **Settings → About → Beta → ADB Access**):
 
