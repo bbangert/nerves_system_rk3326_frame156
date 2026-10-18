@@ -20,3 +20,6 @@ erl_crash.dump
 /.build/
 /build-system.log
 /build-firmware.log
+
+# Touchscreen firmware extracted from the stock kernel (see board/README.md)
+rootfs_overlay/lib/firmware/silead/

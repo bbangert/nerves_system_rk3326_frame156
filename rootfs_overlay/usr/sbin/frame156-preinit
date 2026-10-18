@@ -1,0 +1,27 @@
+#!/bin/sh
+# Run by erlinit (--pre-run-exec) before Erlang starts. Must never block
+# or fail the boot.
+
+# The RK915 Wi-Fi driver otherwise picks a random MAC address on every
+# boot. Derive a stable, locally administered one from the eMMC's CID.
+load_rk915() {
+    cid=$(cat /sys/block/mmcblk0/device/cid 2>/dev/null)
+    if [ -n "$cid" ]; then
+        # Plain ash: no cut, no ${var:offset}. Take hex pairs off the front.
+        h=$(printf '%s' "$cid" | sha256sum)
+        mac=02
+        for _ in 1 2 3 4 5; do
+            rest=${h#??}
+            mac=$mac:${h%"$rest"}
+            h=$rest
+        done
+        modprobe rk915 macaddr="$mac"
+    else
+        modprobe rk915
+    fi
+}
+
+# Loading the driver downloads its firmware, so do it in the background
+load_rk915 </dev/null >/dev/null 2>&1 &
+
+exit 0

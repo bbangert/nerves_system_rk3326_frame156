@@ -31,6 +31,13 @@ CONFIG_DRM_PANEL_EDP=y
 CONFIG_DRM_LONTIUM_LT8911EXB=y
 CONFIG_BACKLIGHT_PWM=y
 
+# Audio: RK809 codec on I2S1, external speaker amplifier
+CONFIG_SND_SOC_SIMPLE_AMPLIFIER=y
+
+# Silead GSL3676 touchscreen (needs /lib/firmware/silead/gsl3676.fw)
+CONFIG_INPUT_TOUCHSCREEN=y
+CONFIG_TOUCHSCREEN_SILEAD=m
+
 # Debugging without a UART: keep oops/console logs in RAM (ramoops), and
 # let the kernel panic reboot instead of hanging.
 CONFIG_PSTORE=y

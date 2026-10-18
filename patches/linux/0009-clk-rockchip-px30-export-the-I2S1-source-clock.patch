@@ -1,0 +1,31 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] clk: rockchip: px30: export the I2S1 source clock
+
+The I2S1 fractional divider takes clk_i2s1_src straight from GPLL at
+1.2 GHz by default, and at that input it runs the I2S far slower than
+programmed: playback on the FRAME156 stalls with write errors. At 600 MHz
+it's exact. Give clk_i2s1_src an ID so a device tree can set its rate
+with assigned-clocks.
+
+---
+--- a/include/dt-bindings/clock/px30-cru.h
++++ b/include/dt-bindings/clock/px30-cru.h
+@@ -174,6 +174,7 @@
+ #define PCLK_ISP		351
+ #define PCLK_CIF		352
+ #define PCLK_OTP_PHY		353
++#define SCLK_I2S1_SRC		354
+ 
+ /* pmu-clocks indices */
+ 
+--- a/drivers/clk/rockchip/clk-px30.c
++++ b/drivers/clk/rockchip/clk-px30.c
+@@ -628,7 +628,7 @@
+ 	GATE(SCLK_I2S0_RX_OUT, "clk_i2s0_rx_out", "clk_i2s0_rx_out_pre", CLK_SET_RATE_PARENT,
+ 			PX30_CLKGATE_CON(10), 11, CLK_GATE_HIWORD_MASK),
+ 
+-	COMPOSITE(0, "clk_i2s1_src", mux_gpll_npll_p, 0,
++	COMPOSITE(SCLK_I2S1_SRC, "clk_i2s1_src", mux_gpll_npll_p, 0,
+ 			PX30_CLKSEL_CON(30), 8, 1, MFLAGS, 0, 7, DFLAGS,
+ 			PX30_CLKGATE_CON(10), 0, GFLAGS),
+ 	COMPOSITE_FRACMUX(0, "clk_i2s1_frac", "clk_i2s1_src", CLK_SET_RATE_PARENT,

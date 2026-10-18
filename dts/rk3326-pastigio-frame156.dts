@@ -93,12 +93,51 @@
 		};
 	};
 
+	/*
+	 * The RK809 headphone outputs feed an external speaker amplifier
+	 * (stock: use-ext-amplifier, spk-ctl-gpios).
+	 */
+	rk809-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "rk809";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,aux-devs = <&speaker_amp>;
+		simple-audio-card,widgets =
+			"Microphone", "Mic Jack",
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"MICL", "Mic Jack",
+			"Speaker Amplifier INL", "HPOL",
+			"Speaker Amplifier INR", "HPOR",
+			"Speaker", "Speaker Amplifier OUTL",
+			"Speaker", "Speaker Amplifier OUTR";
+
+		simple-audio-card,codec {
+			sound-dai = <&rk809>;
+		};
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_2ch>;
+		};
+	};
+
+	speaker_amp: audio-amplifier {
+		compatible = "simple-audio-amplifier";
+		enable-gpios = <&gpio3 RK_PC3 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&spk_ctl>;
+		sound-name-prefix = "Speaker Amplifier";
+	};
+
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		clocks = <&rk809 1>;
 		clock-names = "ext_clock";
 		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_enable_h>;
+		post-power-on-delay-ms = <100>;
+		/* Wi-Fi power enable (stock WIFI,poweren_gpio), high = on */
 		reset-gpios = <&gpio0 RK_PA1 GPIO_ACTIVE_LOW>;
 	};
 
@@ -176,13 +215,17 @@
 		interrupt-parent = <&gpio0>;
 		interrupts = <RK_PB2 IRQ_TYPE_LEVEL_LOW>;
 		clock-output-names = "rk808-clkout1", "rk808-clkout2";
+		/* Codec master clock from I2S1 */
+		clocks = <&cru SCLK_I2S1_OUT>;
+		clock-names = "mclk";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pmic_int>;
+		pinctrl-0 = <&pmic_int>, <&i2s1_2ch_mclk>;
 		system-power-controller;
 		/* restart through PSCI so the reboot mode flag survives */
 		rockchip,no-pmic-restart;
 		wakeup-source;
 		#clock-cells = <1>;
+		#sound-dai-cells = <0>;
 
 		vcc1-supply = <&vcc5v0_sys>;
 		vcc2-supply = <&vcc5v0_sys>;
@@ -381,12 +424,37 @@
 				regulator-boot-on;
 			};
 		};
+
+		rk809_codec: codec {
+			rockchip,mic-in-differential;
+		};
 	};
 };
 
 &i2c1 {
-	clock-frequency = <100000>;
+	clock-frequency = <400000>;
 	status = "okay";
+
+	/*
+	 * Silead GSL3676 (stock gslX680 driver, Kingvina_FG1509_2_GSL3676_HuiY).
+	 * The firmware comes from the stock kernel. The chip reports raw sensor
+	 * units (28 x 64 by 18 x 64), and the stock driver flipped both axes.
+	 * The stock DT's ilitek@41 shares the reset pin and isn't fitted.
+	 */
+	touchscreen@40 {
+		compatible = "silead,gsl3675";
+		reg = <0x40>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PB3 IRQ_TYPE_LEVEL_HIGH>;
+		power-gpios = <&gpio3 RK_PC2 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tp_gpio>;
+		firmware-name = "gsl3676.fw";
+		touchscreen-size-x = <1792>;
+		touchscreen-size-y = <1152>;
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+	};
 
 	hym8563: rtc@51 {
 		compatible = "haoyu,hym8563";
@@ -431,6 +499,16 @@
 	};
 };
 
+&i2s1_2ch {
+	/*
+	 * The I2S1 fractional divider runs far too slow when fed 1.2 GHz
+	 * straight from GPLL (playback stalls); from 600 MHz it's exact.
+	 */
+	assigned-clocks = <&cru SCLK_I2S1_SRC>;
+	assigned-clock-rates = <600000000>;
+	status = "okay";
+};
+
 &io_domains {
 	vccio1-supply = <&vcc_3v0>;
 	vccio2-supply = <&vccio_sd>;
@@ -463,16 +541,32 @@
 };
 
 &sdio {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	bus-width = <4>;
 	cap-sd-highspeed;
+	cap-sdio-irq;
 	keep-power-in-suspend;
 	max-frequency = <50000000>;
 	mmc-pwrseq = <&sdio_pwrseq>;
 	non-removable;
 	no-sd;
 	no-mmc;
-	/* RK915 Wi-Fi: enable once a driver is integrated */
-	status = "disabled";
+	status = "okay";
+
+	/*
+	 * RK915 Wi-Fi (SDIO ID 0296:5348), out-of-tree driver (package/rk915).
+	 * The compatible also selects its MMC quirks (patch 0008).
+	 */
+	wifi@1 {
+		compatible = "rockchip,rk915";
+		reg = <1>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PA5 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "host-wake";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wifi_host_wake_l>;
+	};
 };
 
 &sdmmc {
@@ -534,9 +628,26 @@
 		};
 	};
 
+	audio {
+		spk_ctl: spk-ctl {
+			rockchip,pins = <3 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	tp {
+		tp_gpio: tp-gpio {
+			rockchip,pins = <0 RK_PB3 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PC2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	sdio-pwrseq {
 		wifi_enable_h: wifi-enable-h {
 			rockchip,pins = <0 RK_PA1 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		wifi_host_wake_l: wifi-host-wake-l {
+			rockchip,pins = <0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_down>;
 		};
 	};
 };

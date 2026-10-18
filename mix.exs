@@ -82,6 +82,7 @@ defmodule NervesSystemRk3326Frame156.MixProject do
       "dts",
       "fwup_include",
       "linux",
+      "package",
       "patches",
       "rootfs_overlay",
       "scripts/rk-images.py",

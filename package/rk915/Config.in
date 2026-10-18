@@ -1,0 +1,11 @@
+config BR2_PACKAGE_RK915
+	bool "rk915"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Driver (mac80211) and firmware for the Rockchip RK915 SDIO
+	  Wi-Fi chip, from the community port to current kernels.
+
+	  https://github.com/rei512/rk915
+
+comment "rk915 needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL
