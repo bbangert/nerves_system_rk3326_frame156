@@ -6,13 +6,14 @@
 #
 # fwup writes the "complete" task into a sparse image the size of the eMMC,
 # and only the regions fwup touches are sent to the frame. Everything below
-# sector 73728 except the GPT and the bootloader message at the start of
-# misc (idbloader, uboot, trust, resource) is never written. The primary
-# GPT goes last, so an interrupted install never leaves a Nerves partition
-# table pointing at missing data.
+# sector 73728 except the GPT and the (empty) bootloader message at the
+# start of misc (idbloader, uboot, trust, resource) is never written. The
+# primary GPT goes last, so an interrupted install never leaves a Nerves
+# partition table pointing at missing data.
 #
-# Get into loader mode with `adb reboot loader` from Android, or by holding
-# the power button while plugging in power with the USB-C cable connected.
+# Get into loader mode with `adb reboot loader` from Android, from Nerves
+# by writing "loader" to /run/reboot-param and rebooting, or by holding the
+# power button while plugging in power with the USB-C cable connected.
 set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)

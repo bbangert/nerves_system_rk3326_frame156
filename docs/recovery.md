@@ -14,6 +14,17 @@ slot, and the serial console isn't wired up.
 Nothing important is lost. The Rockchip boot chain and Android's userdata
 are untouched, and `backups/unit1/` holds every byte the test changed.
 
+## If Nerves still runs: reboot into loader mode
+
+From IEx (over ssh or USB serial), with the frame's power supply plugged in:
+
+```elixir
+File.write!("/run/reboot-param", "loader"); Nerves.Runtime.reboot()
+```
+
+The frame shows up as `2207:330d` about 3 seconds later. `rkdeveloptool rd`
+boots it normally again.
+
 ## First: the power-button escape (no tools, proven)
 
 1. Connect the frame's USB-C port to the computer (USB-A-to-C cable).

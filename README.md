@@ -4,8 +4,8 @@ A [Nerves](https://nerves-project.org) system for the Pastigio FRAME156, a
 15.6" Frameo photo frame built on the Rockchip RK3326.
 
 **Status: bring-up.** Nerves boots on unit 1: IEx over ssh on the
-USB-C network, display working. A/B upgrades over the network haven't been
-tested yet.
+USB-C network, display working, and A/B upgrades over the network (`mix
+upload`) that fall back on their own if the new firmware fails.
 
 | Feature              | Status |
 |----------------------|--------|
@@ -21,6 +21,7 @@ tested yet.
 | RTC                  | HYM8563; probes |
 | Watchdog             | dw_wdt; works |
 | Bootloader           | Stock Rockchip vendor U-Boot 2017.09, kept as-is |
+| Reboot modes         | `loader` and `recovery` work (PSCI restart, patch 0007) |
 
 Units differ: unit 1 has a 1920x1080 panel, and unit 2 (newer
 firmware) has a 1366x768 panel with different bridge settings.
@@ -32,15 +33,16 @@ firmware.
 
 The stock Rockchip boot chain stays untouched: the DDR init and miniloader
 (idbloader), BL31 (`trust`), the vendor U-Boot (`uboot`), and the `resource`
-partition. The firmware only rewrites the GPT, the bootloader message at the
-start of `misc`, and the areas after the first 36 MiB. See
+partition. The firmware only rewrites the GPT, clears the bootloader message
+at the start of `misc`, and writes the areas after the first 36 MiB. See
 [fwup_include/fwup-common.conf](fwup_include/fwup-common.conf) for the layout.
 
 The vendor U-Boot has no persistent environment, and its distro boot doesn't
 work on these units, so Nerves boots the way Android does. U-Boot's
 `boot_android` loads an Android boot image (header v0) from the partition
-named `boot`, or from `recovery` while the bootloader message in `misc` says
-`boot-recovery`. Those are slots A and B. Each boot image holds:
+named `boot`. After `reboot recovery` it loads the one named `recovery`,
+once. Slot A's boot image is in p5 and slot B's in p6; the validated slot's
+partition is named `boot`. Each boot image holds:
 
 - the kernel, which carries our device tree (`ARM64_BUILTIN_DTB_OVERRIDE`,
   patch 0006), since U-Boot only copes with the stock one
@@ -49,9 +51,18 @@ named `boot`, or from `recovery` while the bootloader message in `misc` says
   (`board/rk-kernel.dtb`). U-Boot builds its own drivers from it; without
   one, its PMIC driver doesn't probe and it drops into loader or recovery mode.
 
-An upgrade writes the inactive slot's boot image and rootfs, then switches
-slots with one 2 KiB write to `misc`. The U-Boot environment block at sector
-73728 only holds firmware metadata for nerves_runtime.
+An upgrade writes the other slot's boot image and rootfs, then reboots with
+`recovery` (fwup's `reboot_param`) to try it once. nerves_runtime's
+`StartupGuard` validates it after the apps start, and validating rewrites
+the GPT so the new slot's partition is named `boot`. If the new firmware
+panics, hangs (the heart watchdog resets it), or loses power before that,
+the next boot is the old firmware again; a hang before the watchdog starts
+needs a power cycle. The U-Boot environment block at sector 73728 only
+holds firmware metadata for nerves_runtime and fwup (`nerves_fw_boot_slot`
+names the validated slot).
+
+From Nerves, write `loader` to `/run/reboot-param` and reboot to get into
+loader mode for `scripts/install-rockusb.sh` or a factory restore.
 
 U-Boot also rewrites the first `console=` to `ttyFIQ0` and appends
 `init=/init`, so the rootfs has `/init` linked to erlinit.
