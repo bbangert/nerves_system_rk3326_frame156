@@ -2,6 +2,8 @@ defmodule NervesSystemRk3326Frame156.MixProject do
   use Mix.Project
 
   @app :nerves_system_rk3326_frame156
+  @github_organization "bbangert"
+  @source_url "https://github.com/#{@github_organization}/#{@app}"
   @version Path.join(__DIR__, "VERSION")
            |> File.read!()
            |> String.trim()
@@ -36,6 +38,9 @@ defmodule NervesSystemRk3326Frame156.MixProject do
   defp nerves_package do
     [
       type: :system,
+      artifact_sites: [
+        {:github_releases, "#{@github_organization}/#{@app}"}
+      ],
       build_runner_opts: build_runner_opts(),
       platform: Nerves.System.BR,
       platform_config: [
@@ -72,7 +77,8 @@ defmodule NervesSystemRk3326Frame156.MixProject do
   defp package do
     [
       files: package_files(),
-      licenses: ["GPL-2.0-only", "GPL-2.0-or-later"]
+      licenses: ["GPL-2.0-only", "GPL-2.0-or-later"],
+      links: %{"GitHub" => @source_url}
     ]
   end
 

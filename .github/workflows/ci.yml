@@ -1,0 +1,79 @@
+name: CI
+
+# Builds the system on every push. A `vX.Y.Z` tag matching VERSION also
+# drafts a GitHub release with the artifact, which Nerves projects download
+# instead of building the system themselves (see `artifact_sites` in mix.exs).
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Match mise.toml and the OTP that nerves_system_br ships
+  OTP_VERSION: 29.1.2
+  ELIXIR_VERSION: 1.20.4-otp-29
+  NERVES_BOOTSTRAP_VERSION: 1.17.3
+
+permissions:
+  contents: read
+
+jobs:
+  get-br-dependencies:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gridpoint-com/actions-nerves-system@v1.0.4
+      - name: Get Buildroot dependencies
+        uses: ./.actions/get-br-dependencies
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          nerves-bootstrap-version: ${{ env.NERVES_BOOTSTRAP_VERSION }}
+
+  build-system:
+    needs: [get-br-dependencies]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      # Mesa needs host LLVM and Clang, which take more disk than a stock
+      # runner has free. Drop preinstalled SDKs this build doesn't use.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            /usr/share/swift /usr/local/julia* /opt/az /usr/local/share/powershell
+          sudo docker image prune --all --force > /dev/null
+          df -h /
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake bc build-essential cmake cpio curl file git \
+            libncurses-dev libssl-dev m4 pkg-config python3 rsync \
+            squashfs-tools unzip wget
+      - uses: actions/checkout@v4
+      - uses: gridpoint-com/actions-nerves-system@v1.0.4
+      - name: Build the system
+        uses: ./.actions/build-system
+        with:
+          otp-version: ${{ env.OTP_VERSION }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          nerves-bootstrap-version: ${{ env.NERVES_BOOTSTRAP_VERSION }}
+
+  deploy-system:
+    needs: [build-system]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gridpoint-com/actions-nerves-system@v1.0.4
+      - name: Draft a GitHub release with the artifact
+        uses: ./.actions/deploy-system
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
