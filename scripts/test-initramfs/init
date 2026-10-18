@@ -1,0 +1,61 @@
+#!/bin/sh
+# PID 1 of the bring-up initramfs (see scripts/build-test-kernel.sh).
+#
+# Reach it over the USB-C cable:
+#   network: the frame is 172.31.207.1 and hands the host an address by DHCP
+#            shell:  socat - TCP:172.31.207.1:2323   (or telnet 172.31.207.1)
+#   serial:  /dev/ttyACM0 on the host
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts /sys/fs/pstore
+mount -t devpts devpts /dev/pts
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+mount -t configfs configfs /sys/kernel/config 2>/dev/null
+
+log() { echo "frame156-test: $*" > /dev/kmsg; }
+log "initramfs up"
+ls /sys/fs/pstore > /dev/kmsg 2>&1
+
+# Bring up the CDC ECM side of the USB gadget
+i=0
+while [ ! -e /sys/class/net/usb0 ] && [ $i -lt 30 ]; do
+  sleep 1
+  i=$((i + 1))
+done
+ifconfig lo 127.0.0.1 up
+if ifconfig usb0 172.31.207.1 netmask 255.255.255.0 up; then
+  touch /var/lib/misc/udhcpd.leases
+  udhcpd /etc/udhcpd.conf
+  nc -ll -p 2323 -e /bin/sh &
+  telnetd -l /bin/sh
+  log "usb0 up at 172.31.207.1"
+else
+  log "no usb0"
+fi
+
+# Shell on the ACM serial side, restarted whenever the host closes it
+(
+  while true; do
+    if [ -e /dev/ttyGS0 ]; then
+      setsid sh -c 'exec /bin/sh </dev/ttyGS0 >/dev/ttyGS0 2>&1'
+    fi
+    sleep 1
+  done
+) &
+
+# And one on the display, if a framebuffer console came up
+(
+  while true; do
+    setsid sh -c 'exec /bin/sh </dev/tty1 >/dev/tty1 2>&1'
+    sleep 1
+  done
+) &
+
+while true; do
+  sleep 3600
+done

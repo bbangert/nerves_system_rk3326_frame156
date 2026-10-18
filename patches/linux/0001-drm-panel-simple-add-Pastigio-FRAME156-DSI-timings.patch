@@ -1,0 +1,61 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] drm/panel: simple: add Pastigio FRAME156 DSI timings
+
+The Pastigio FRAME156 photo frame feeds a 1920x1080 eDP panel through a
+Lontium LT8911EXB DSI-to-eDP bridge. Describe the DSI side with the
+timings used by the stock firmware so the PX30 DSI host can drive it.
+
+---
+--- a/drivers/gpu/drm/panel/panel-simple.c
++++ b/drivers/gpu/drm/panel/panel-simple.c
+@@ -5936,6 +5936,40 @@
+ 	.lanes = 4,
+ };
+ 
++static const struct drm_display_mode pastigio_frame156_mode = {
++	.clock = 152600,
++	.hdisplay = 1920,
++	.hsync_start = 1920 + 140,
++	.hsync_end = 1920 + 140 + 40,
++	.htotal = 1920 + 140 + 40 + 140,
++	.vdisplay = 1080,
++	.vsync_start = 1080 + 20,
++	.vsync_end = 1080 + 20 + 10,
++	.vtotal = 1080 + 20 + 10 + 30,
++};
++
++/*
++ * The FRAME156 drives a 15.6" eDP panel through a Lontium LT8911EXB
++ * DSI-to-eDP bridge. These are the DSI-side timings from the stock
++ * firmware; the bridge itself is configured separately.
++ */
++static const struct panel_desc_dsi pastigio_frame156 = {
++	.desc = {
++		.modes = &pastigio_frame156_mode,
++		.num_modes = 1,
++		.bpc = 8,
++		.size = {
++			.width = 344,
++			.height = 194,
++		},
++		.connector_type = DRM_MODE_CONNECTOR_DSI,
++	},
++	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
++		 MIPI_DSI_MODE_LPM,
++	.format = MIPI_DSI_FMT_RGB888,
++	.lanes = 4,
++};
++
+ static const struct of_device_id dsi_of_match[] = {
+ 	{
+ 		.compatible = "auo,b080uan01",
+@@ -5956,6 +5990,9 @@
+ 		.compatible = "osddisplays,osd101t2045-53ts",
+ 		.data = &osd101t2045_53ts
+ 	}, {
++		.compatible = "pastigio,frame156-panel",
++		.data = &pastigio_frame156
++	}, {
+ 		/* sentinel */
+ 	}
+ };

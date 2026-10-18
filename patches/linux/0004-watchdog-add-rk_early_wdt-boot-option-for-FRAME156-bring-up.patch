@@ -1,0 +1,75 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] watchdog: add rk_early_wdt boot option for FRAME156 bring-up
+
+The FRAME156 vendor bootloader never starts the watchdog and the board
+has no serial console. With "rk_early_wdt" on the command line, start
+the PX30 watchdog from an early initcall so a hung test kernel resets
+the board (keeping ramoops) instead of hanging forever.
+
+---
+--- a/drivers/watchdog/Makefile
++++ b/drivers/watchdog/Makefile
+@@ -55,6 +55,7 @@
+ obj-$(CONFIG_SA1100_WATCHDOG) += sa1100_wdt.o
+ obj-$(CONFIG_SAMA5D4_WATCHDOG) += sama5d4_wdt.o
+ obj-$(CONFIG_DW_WATCHDOG) += dw_wdt.o
++obj-$(CONFIG_DW_WATCHDOG) += rk_early_wdt.o
+ obj-$(CONFIG_EP93XX_WATCHDOG) += ep93xx_wdt.o
+ obj-$(CONFIG_PNX4008_WATCHDOG) += pnx4008_wdt.o
+ obj-$(CONFIG_DAVINCI_WATCHDOG) += davinci_wdt.o
+--- a/drivers/watchdog/rk_early_wdt.c
++++ b/drivers/watchdog/rk_early_wdt.c
+@@ -0,0 +1,53 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Start the RK3326/PX30 watchdog early when booted with "rk_early_wdt".
++ *
++ * The vendor bootloader on the Pastigio FRAME156 never starts the
++ * watchdog, and the frame has no serial console, so a test kernel that
++ * hangs would otherwise sit forever. With the watchdog running, a hang
++ * becomes a warm reset that keeps the ramoops log. dw_wdt takes over when
++ * it probes, and the watchdog core keeps it fed until userspace opens
++ * /dev/watchdog.
++ */
++#include <linux/init.h>
++#include <linux/io.h>
++#include <linux/kernel.h>
++#include <linux/of.h>
++
++#define PX30_WDT_BASE		0xff1e0000
++#define WDT_CR			0x00
++#define WDT_CR_EN		BIT(0)
++#define WDT_TORR		0x04
++#define WDT_CRR			0x0c
++#define WDT_CRR_RESTART		0x76
++
++static bool rk_early_wdt;
++
++static int __init rk_early_wdt_setup(char *str)
++{
++	rk_early_wdt = true;
++	return 1;
++}
++__setup("rk_early_wdt", rk_early_wdt_setup);
++
++static int __init rk_early_wdt_start(void)
++{
++	void __iomem *base;
++
++	if (!rk_early_wdt || !of_machine_is_compatible("pastigio,frame156"))
++		return 0;
++
++	base = ioremap(PX30_WDT_BASE, 0x100);
++	if (!base)
++		return -ENOMEM;
++
++	/* Longest timeout, reset on the first expiry */
++	writel(0xff, base + WDT_TORR);
++	writel(WDT_CRR_RESTART, base + WDT_CRR);
++	writel(WDT_CR_EN, base + WDT_CR);
++	iounmap(base);
++
++	pr_info("rk_early_wdt: watchdog started\n");
++	return 0;
++}
++early_initcall(rk_early_wdt_start);

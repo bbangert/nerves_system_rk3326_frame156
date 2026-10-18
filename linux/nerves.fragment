@@ -1,0 +1,43 @@
+# Applied on top of linux-7.1.config (the ROCKNIX RK3326 config).
+
+# Placeholders in the ROCKNIX config
+CONFIG_LOCALVERSION=""
+# CONFIG_LOCALVERSION_AUTO is not set
+CONFIG_INITRAMFS_SOURCE=""
+CONFIG_RD_GZIP=y
+
+# Nerves root and application filesystems
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_XZ=y
+CONFIG_SQUASHFS_FILE_DIRECT=y
+CONFIG_EXT4_FS=y
+CONFIG_F2FS_FS=y
+CONFIG_VFAT_FS=y
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_ISO8859_1=y
+
+# USB-C gadget: CDC composite (ECM network + ACM serial) binds at boot
+# without any userspace help, and the serial side can carry the console.
+CONFIG_USB_GADGET=y
+CONFIG_USB_DWC2=y
+CONFIG_USB_DWC2_DUAL_ROLE=y
+CONFIG_USB_CDC_COMPOSITE=y
+CONFIG_U_SERIAL_CONSOLE=y
+
+# Board peripherals
+CONFIG_RTC_DRV_HYM8563=y
+CONFIG_DRM_PANEL_SIMPLE=y
+CONFIG_BACKLIGHT_PWM=y
+
+# Debugging without a UART: keep oops/console logs in RAM (ramoops), and
+# let the kernel panic reboot instead of hanging.
+CONFIG_PSTORE=y
+CONFIG_PSTORE_RAM=y
+CONFIG_PSTORE_CONSOLE=y
+CONFIG_PSTORE_PMSG=y
+CONFIG_PANIC_TIMEOUT=10
+
+# Watchdog for Nerves heart
+CONFIG_WATCHDOG=y
+CONFIG_DW_WATCHDOG=y
+CONFIG_WATCHDOG_NOWAYOUT=y

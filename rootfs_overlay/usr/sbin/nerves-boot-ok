@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# Run by erlinit before starting Erlang. Reaching this point means the
+# kernel and root filesystem work, so reset the failed-boot counter that
+# boot.scr uses to decide when to drop into Rockchip loader mode. The
+# boot-ok task only writes the environment when the counter is nonzero.
+
+/usr/bin/fwup -q -U -t boot-ok -d /dev/mmcblk0 /usr/share/fwup/ops.fw || true
