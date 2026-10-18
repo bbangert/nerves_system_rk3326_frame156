@@ -17,7 +17,12 @@ upload`) that fall back on their own if the new firmware fails.
 | USB-C                | Device only: CDC ECM network + ACM serial; works |
 | USB-A                | Host; VBUS on |
 | Display              | 1920x1080 eDP through a Lontium LT8911EXB DSI bridge; works (our bridge driver, patch 0005, plus a panel-edp entry) |
-| Wi-Fi                | RK915 SDIO; no driver yet (use a USB dongle) |
+| Wi-Fi                | RK915 SDIO, 2.4 GHz only; scans (community driver, package/rk915) |
+| Bluetooth            | None on the board (the RK915 is Wi-Fi only) |
+| Audio                | RK809 codec + speaker amp; plays (`aplay`, `speaker-test`) |
+| Touchscreen          | Silead GSL3676; driver loads, touches not decoded yet |
+| Backlight            | PWM, `/sys/class/backlight/backlight` (0-255); works |
+| Power button         | RK809 power key input; works |
 | RTC                  | HYM8563; probes |
 | Watchdog             | dw_wdt; works |
 | Bootloader           | Stock Rockchip vendor U-Boot 2017.09, kept as-is |

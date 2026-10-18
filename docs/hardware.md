@@ -159,14 +159,31 @@ vccio4 `vcc_3v0`, vccio5 `vcc_3v0`; pmuio1/2 `vcc3v0_pmu`.
   rebranded Seekwave SV6160.
 - Wi-Fi power enable: gpio0 1 (GPIO0_A1). Host wake: gpio0 5 (GPIO0_A5).
   32 kHz clock from RK809 clkout2.
-- Bluetooth: on `uart1`, reset gpio0 12 (GPIO0_B4), RTS gpio1 19.
+- Bluetooth: the stock DT describes one on `uart1` (reset gpio0 12, RTS
+  gpio1 19), but it's disabled there, and the RK915 is Wi-Fi only (Rockchip
+  datasheet: 802.11b/g/n, 1T1R, 2.4 GHz). There's no Bluetooth chip.
+- **Mainline (2026-10-17):** the community mac80211 port
+  (github.com/rei512/rk915) works with the stock firmware files
+  (`rk915_fw.bin`, `rk915_patch.bin`, byte-identical) plus its MMC quirks
+  (kernel patch 0008). wlan0 scans. The driver picks a random MAC unless
+  given `macaddr=`; Nerves derives one from the eMMC CID.
 
 ## Other peripherals
 
 - RTC: HYM8563 on i2c1 at 0x51.
 - IR receiver on `pwm0` (Rockchip PWM remote).
 - Keys: `rockchip,key` on SARADC channel 1.
-- Audio: RK809 codec, speaker amp enable gpio3 19.
+- Audio: RK809 codec on I2S1 (MCLK from `clk_i2s1_out`), speaker amp
+  enable gpio3 19 (GPIO3_C3), fed from the codec's headphone outputs
+  (stock `use-ext-amplifier`). Under mainline the I2S1 fractional divider
+  mis-times the bus when fed 1.2 GHz from GPLL; `clk_i2s1_src` has to run at
+  600 MHz (kernel patch 0009 + `assigned-clocks`).
+- Touchscreen: Silead GSL3676 on i2c1 at 0x40, IRQ gpio0 11 (GPIO0_B3,
+  level high), reset gpio3 18 (GPIO3_C2, active high). The stock driver's
+  panel config is `Kingvina_FG1509_2_GSL3676_HuiY`; its firmware is
+  extracted by `scripts/extract-touch-fw.py`.
+- Neither the IR receiver nor the PIR sensor connector is populated on
+  unit 1.
 - The stock device tree also declares a motion sensor (`pir-s18`,
   disabled), and on i2c1, touch controllers (gslX680 at 0x40, ilitek at
   0x41) and accelerometers (sc7a20, mir3da, mc3230). These look like
