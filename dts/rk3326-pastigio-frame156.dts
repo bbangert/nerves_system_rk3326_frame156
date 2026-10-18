@@ -445,7 +445,12 @@
 		compatible = "silead,gsl3675";
 		reg = <0x40>;
 		interrupt-parent = <&gpio0>;
-		interrupts = <RK_PB3 IRQ_TYPE_LEVEL_HIGH>;
+		/*
+		 * INT idles high and pulses low for ~1 ms per frame. The stock
+		 * tree says level-high, which makes the mainline driver poll
+		 * the chip nonstop and starve it.
+		 */
+		interrupts = <RK_PB3 IRQ_TYPE_EDGE_FALLING>;
 		power-gpios = <&gpio3 RK_PC2 GPIO_ACTIVE_HIGH>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&tp_gpio>;

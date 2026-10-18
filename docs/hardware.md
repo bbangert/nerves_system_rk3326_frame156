@@ -178,12 +178,25 @@ vccio4 `vcc_3v0`, vccio5 `vcc_3v0`; pmuio1/2 `vcc3v0_pmu`.
   (stock `use-ext-amplifier`). Under mainline the I2S1 fractional divider
   mis-times the bus when fed 1.2 GHz from GPLL; `clk_i2s1_src` has to run at
   600 MHz (kernel patch 0009 + `assigned-clocks`).
-- Touchscreen: Silead GSL3676 on i2c1 at 0x40, IRQ gpio0 11 (GPIO0_B3,
-  level high), reset gpio3 18 (GPIO3_C2, active high). The stock driver's
-  panel config is `Kingvina_FG1509_2_GSL3676_HuiY`; its firmware is
-  extracted by `scripts/extract-touch-fw.py`.
+- Touchscreen: Silead GSL3676 on i2c1 at 0x40, IRQ gpio0 11 (GPIO0_B3),
+  reset gpio3 18 (GPIO3_C2, active high). The stock driver's panel config
+  is `Kingvina_FG1509_2_GSL3676_HuiY`; its firmware is extracted by
+  `scripts/extract-touch-fw.py`. None of the other GSL3676 configs in the
+  stock kernel work on this panel. INT idles high and pulses low for about
+  1 ms per frame (about 40 per second while touched), so the interrupt
+  must be falling-edge. The stock tree says level-high; under mainline that
+  makes `silead_ts` poll the chip hundreds of times a second, which stops
+  it producing frames at all.
 - Neither the IR receiver nor the PIR sensor connector is populated on
   unit 1.
+- Accelerometer at i2c1 0x4c. The stock kernel drives it as an MC3230
+  (its `gs_mc3230` probe succeeds; `gs_mir3da` and `gs_sc7a20` don't), but
+  it reads chip ID 0xA0 at 0x18 and product code 0x22 at 0x3b, and its data
+  is 16-bit X/Y/Z at 0x0D-0x12 (about 16384 counts/g), like the MC3419
+  family. Mainline has no driver; the example app reads it over
+  `/dev/i2c-1` (`FrameExample.Orientation`). On its stand in landscape the
+  frame reads about -1 g on Y. Write 0x01 to the mode register (0x07) to
+  wake it.
 - The stock device tree also declares a motion sensor (`pir-s18`,
   disabled), and on i2c1, touch controllers (gslX680 at 0x40, ilitek at
   0x41) and accelerometers (sc7a20, mir3da, mc3230). These look like

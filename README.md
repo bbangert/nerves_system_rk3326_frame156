@@ -20,7 +20,9 @@ upload`) that fall back on their own if the new firmware fails.
 | Wi-Fi                | RK915 SDIO, 2.4 GHz only; scans (community driver, package/rk915) |
 | Bluetooth            | None on the board (the RK915 is Wi-Fi only) |
 | Audio                | RK809 codec + speaker amp; plays (`aplay`, `speaker-test`) |
-| Touchscreen          | Silead GSL3676; driver loads, touches not decoded yet |
+| Touchscreen          | Silead GSL3676 (`silead_ts`, stock firmware extracted by `scripts/extract-touch-fw.py`); works |
+| GPU                  | Mali-G31, Panfrost + Mesa (EGL, GLES); probes, `kmscube` installed |
+| Accelerometer        | MC3419-like at i2c1 0x4c, no kernel driver; read from Elixir (example app) |
 | Backlight            | PWM, `/sys/class/backlight/backlight` (0-255); works |
 | Power button         | RK809 power key input; works |
 | RTC                  | HYM8563; probes |
