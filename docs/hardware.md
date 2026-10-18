@@ -170,7 +170,9 @@ vccio4 `vcc_3v0`, vccio5 `vcc_3v0`; pmuio1/2 `vcc3v0_pmu`.
 
 ## Other peripherals
 
-- RTC: HYM8563 on i2c1 at 0x51.
+- RTC: the RK809 PMIC's (`/dev/rtc0`). Nothing sets it yet, so it reads
+  2017 at boot until NTP runs. The stock tree also declares a HYM8563 on i2c1
+  at 0x51, but nothing answers there.
 - IR receiver on `pwm0` (Rockchip PWM remote).
 - Keys: `rockchip,key` on SARADC channel 1.
 - Audio: RK809 codec on I2S1 (MCLK from `clk_i2s1_out`), speaker amp

@@ -41,7 +41,6 @@
 		mmc0 = &emmc;
 		mmc1 = &sdmmc;
 		mmc2 = &sdio;
-		rtc0 = &hym8563;
 	};
 
 	chosen {
@@ -461,11 +460,13 @@
 		touchscreen-inverted-y;
 	};
 
+	/* In the stock tree, but nothing answers at 0x51; the RK809 has the RTC */
 	hym8563: rtc@51 {
 		compatible = "haoyu,hym8563";
 		reg = <0x51>;
 		#clock-cells = <0>;
 		clock-output-names = "hym8563";
+		status = "disabled";
 	};
 };
 
