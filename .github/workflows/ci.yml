@@ -56,13 +56,69 @@ jobs:
             libncurses-dev libssl-dev m4 pkg-config python3 rsync \
             squashfs-tools unzip wget
       - uses: actions/checkout@v4
-      - uses: gridpoint-com/actions-nerves-system@v1.0.4
-      - name: Build the system
-        uses: ./.actions/build-system
+      # These steps follow gridpoint's build-system action, which can't find
+      # the toolchain to key its ccache on with this Buildroot's download
+      # layout. The cache is restored and saved separately so a failed or
+      # timed-out build still speeds up the next one.
+      - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ env.OTP_VERSION }}
           elixir-version: ${{ env.ELIXIR_VERSION }}
-          nerves-bootstrap-version: ${{ env.NERVES_BOOTSTRAP_VERSION }}
+      - name: Install nerves_bootstrap
+        run: mix archive.install --force hex nerves_bootstrap ${{ env.NERVES_BOOTSTRAP_VERSION }}
+      - name: Restore Buildroot downloads
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.nerves/dl
+          key: nerves-dl-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            nerves-dl-${{ github.ref_name }}
+            nerves-dl-main
+            nerves-dl
+      - name: Fetch Mix dependencies
+        run: mix deps.get
+      - name: Validate Hex package
+        run: mix hex.build
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.buildroot-ccache
+          key: buildroot-ccache-${{ github.sha }}
+          restore-keys: buildroot-ccache-
+      - name: Build
+        id: build
+        timeout-minutes: 330
+        run: |
+          export BR2_CCACHE=y
+          export BR2_CCACHE_DIR=$HOME/.buildroot-ccache
+          export BR2_CCACHE_INITIAL_SETUP=--max-size=4G
+          mix compile
+      - name: Save ccache
+        if: always() && steps.build.outcome != 'skipped'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.buildroot-ccache
+          key: buildroot-ccache-${{ github.sha }}
+      - name: Lint
+        run: |
+          if mix help nerves.system.lint > /dev/null 2>&1; then
+            mix nerves.system.lint nerves_defconfig
+          fi
+      - name: Create artifacts
+        run: |
+          mkdir -p deploy/system/artifacts
+          cp CHANGELOG.md deploy/system/CHANGELOG.md
+          mix nerves.artifact ${GITHUB_REPOSITORY#*/} --path deploy/system/artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: system
+          path: deploy/system/artifacts
+      # deploy-system (gridpoint's deploy action) restores this
+      - name: Save deploy cache
+        uses: actions/cache/save@v4
+        with:
+          path: deploy/system
+          key: deploy/system-${{ github.sha }}-${{ github.ref_name }}
 
   deploy-system:
     needs: [build-system]
