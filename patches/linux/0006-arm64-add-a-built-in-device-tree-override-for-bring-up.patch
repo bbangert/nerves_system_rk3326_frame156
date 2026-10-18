@@ -1,0 +1,86 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] arm64: add a built-in device tree override for bring-up
+
+The FRAME156's vendor U-Boot parses the device tree it passes on (from
+the boot image) for its own drivers, and fails on a mainline one. Allow
+a test kernel to carry its own device tree, so U-Boot can be given the
+stock one: take only the memory layout and /chosen from the
+bootloader's device tree and use the built-in one for everything else.
+
+---
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -2406,6 +2406,23 @@
+ 	  protocol even if the corresponding data is present in the ACPI
+ 	  MADT table.
+ 
++config ARM64_BUILTIN_DTB_OVERRIDE
++	bool "Replace the bootloader's device tree with a built-in one"
++	help
++	  Link a device tree blob into the kernel and use it instead of the
++	  one the bootloader passes. Only the memory layout and /chosen
++	  (command line, initrd) are taken from the bootloader's device tree.
++	  This is for bring-up on boards whose vendor bootloader parses the
++	  device tree it hands over and can't cope with a mainline one.
++
++	  If unsure, say N.
++
++config ARM64_BUILTIN_DTB_PATH
++	string "Path of the built-in device tree blob"
++	depends on ARM64_BUILTIN_DTB_OVERRIDE
++	help
++	  Absolute path of the compiled device tree blob to link in.
++
+ config CMDLINE
+ 	string "Default kernel command string"
+ 	default ""
+--- a/arch/arm64/kernel/Makefile
++++ b/arch/arm64/kernel/Makefile
+@@ -36,6 +36,7 @@
+ 			   syscall.o proton-pack.o idle.o patching.o pi/	\
+ 			   rsi.o jump_label.o
+ 
++obj-$(CONFIG_ARM64_BUILTIN_DTB_OVERRIDE)	+= builtin_dtb.o
+ obj-$(CONFIG_COMPAT)			+= sys32.o signal32.o			\
+ 					   sys_compat.o
+ obj-$(CONFIG_COMPAT)			+= sigreturn32.o
+--- a/arch/arm64/kernel/builtin_dtb.S
++++ b/arch/arm64/kernel/builtin_dtb.S
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/* Device tree used instead of the bootloader's (ARM64_BUILTIN_DTB_OVERRIDE) */
++
++	.section .rodata, "a"
++	.balign	8
++	.globl	__builtin_dtb_override
++__builtin_dtb_override:
++	.incbin	CONFIG_ARM64_BUILTIN_DTB_PATH
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -167,6 +167,10 @@
+ 		pr_warn("Large number of MPIDR hash buckets detected\n");
+ }
+ 
++#ifdef CONFIG_ARM64_BUILTIN_DTB_OVERRIDE
++extern const u8 __builtin_dtb_override[];
++#endif
++
+ static void __init setup_machine_fdt(phys_addr_t dt_phys)
+ {
+ 	int size = 0;
+@@ -199,6 +203,15 @@
+ 	/* Early fixups are done, map the FDT as read-only now */
+ 	fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO);
+ 
++#ifdef CONFIG_ARM64_BUILTIN_DTB_OVERRIDE
++	/*
++	 * The memory layout and /chosen came from the bootloader's device
++	 * tree above. Everything else, including reserved memory, comes from
++	 * the built-in one.
++	 */
++	initial_boot_params = (void *)__builtin_dtb_override;
++#endif
++
+ 	name = of_flat_dt_get_machine_name();
+ 	if (!name)
+ 		return;

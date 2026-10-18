@@ -1,0 +1,5 @@
+# Host tools for building firmware against this system. The host must run
+# the same major OTP as the target (nerves_system_br 1.35.2 ships OTP 29).
+[tools]
+erlang = "29.1.2"
+elixir = "1.20.4-otp-29"

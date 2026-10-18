@@ -16,7 +16,7 @@ been installed yet.
 | IEx terminal         | USB-C serial gadget (`ttyGS0`) |
 | USB-C                | Device only: CDC ECM network + ACM serial; works |
 | USB-A                | Host; VBUS on |
-| Display              | 1920x1080 eDP through a Lontium LT8911EXB DSI bridge; works when the bridge is set up from userspace (`scripts/lt8911exb-init.sh`), kernel driver in progress |
+| Display              | 1920x1080 eDP through a Lontium LT8911EXB DSI bridge; works (our bridge driver, patch 0005, plus a panel-edp entry) |
 | Wi-Fi                | RK915 SDIO; no driver yet (use a USB dongle) |
 | RTC                  | HYM8563; probes |
 | Watchdog             | dw_wdt; works |

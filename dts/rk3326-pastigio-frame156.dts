@@ -7,9 +7,12 @@
  *
  * Bring-up notes:
  * - eMMC is limited to high speed (no HS200) until HS200 is verified.
- * - The LT8911EXB DSI-to-eDP bridge has no mainline driver. Until one
- *   exists, vcc3v3_lcd stays on and the bridge reset line is left alone,
- *   so after a warm reboot from Android the bridge keeps its config.
+ * - The display is DSI -> Lontium LT8911EXB (our driver, patch 0005) ->
+ *   eDP panel (panel-edp, patch 0001). The bridge must be programmed with
+ *   the DSI host's own timings. vcc3v3_lcd stays on while bring-up
+ *   continues.
+ * - The gpioN aliases are needed by the vendor U-Boot's PMIC driver when
+ *   it runs from this device tree (recovery test images).
  * - ramoops matches the stock Android layout exactly, so Android can read
  *   back a failed boot's log from /sys/fs/pstore.
  */
@@ -74,6 +77,22 @@
 		default-brightness-level = <200>;
 	};
 
+	/* 15.6" 1920x1080 eDP panel behind the LT8911EXB */
+	panel {
+		compatible = "pastigio,frame156-panel";
+		backlight = <&backlight>;
+		power-supply = <&vcc3v3_lcd>;
+		/* Panel standby (STBYB), high = running */
+		enable-gpios = <&gpio3 RK_PC4 GPIO_ACTIVE_HIGH>;
+		no-hpd;
+
+		port {
+			panel_in_edp: endpoint {
+				remote-endpoint = <&bridge_out_edp>;
+			};
+		};
+	};
+
 	sdio_pwrseq: sdio-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		clocks = <&rk809 1>;
@@ -122,25 +141,8 @@
 		mipi_out: port@1 {
 			reg = <1>;
 
-			mipi_out_panel: endpoint {
-				remote-endpoint = <&mipi_in_panel>;
-			};
-		};
-	};
-
-	/*
-	 * The "panel" is really the LT8911EXB's DSI input; the timings are
-	 * the stock DSI-side ones.
-	 */
-	panel@0 {
-		compatible = "pastigio,frame156-panel";
-		reg = <0>;
-		backlight = <&backlight>;
-		power-supply = <&vcc3v3_lcd>;
-
-		port {
-			mipi_in_panel: endpoint {
-				remote-endpoint = <&mipi_out_panel>;
+			mipi_out_bridge: endpoint {
+				remote-endpoint = <&bridge_in_dsi>;
 			};
 		};
 	};
@@ -396,7 +398,35 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
-	/* LT8911EXB DSI-to-eDP bridge at 0x29: no driver yet */
+	bridge@29 {
+		compatible = "lontium,lt8911exb";
+		reg = <0x29>;
+		reset-gpios = <&gpio3 RK_PC5 GPIO_ACTIVE_LOW>;
+		vdd-supply = <&vcc3v3_lcd>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				bridge_in_dsi: endpoint {
+					remote-endpoint = <&mipi_out_bridge>;
+					data-lanes = <1 2 3 4>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				bridge_out_edp: endpoint {
+					remote-endpoint = <&panel_in_edp>;
+					data-lanes = <0 1>;
+				};
+			};
+		};
+	};
 };
 
 &io_domains {

@@ -34,9 +34,16 @@ JOBS=$(nproc)
 # ramoops log where a hang happened. Recovery boots are one-shot, so after
 # a reset or a power cycle the frame comes back up in Android, which can
 # read the log from /sys/fs/pstore.
-CMDLINE=${CMDLINE:-"console=tty1 console=ttyGS0,115200 loglevel=8 ignore_loglevel initcall_debug rk_early_wdt clk_ignore_unused panic=5 softlockup_panic=1"}
+CMDLINE=${CMDLINE:-"console=tty1 console=ttyGS0,115200 consoleblank=0 loglevel=8 ignore_loglevel initcall_debug rk_early_wdt clk_ignore_unused panic=5 softlockup_panic=1"}
 
 mkdir -p "$DL" "$OUT"
+
+# The stock resource partition image (from the backup), for its device
+# tree and logos
+[ -f "$STOCK_RESOURCE" ] || {
+  echo "Set STOCK_RESOURCE to the stock resource partition image" >&2
+  exit 1
+}
 
 for tool in bc flex bison mkbootimg cpio; do
   command -v $tool >/dev/null || { echo "Missing host tool: $tool" >&2; exit 1; }
@@ -82,7 +89,18 @@ cp "$REPO/linux/linux-7.1.config" "$LINUX/.config"
 "${KMAKE[@]}" olddefconfig >/dev/null
 
 cp "$REPO/dts/rk3326-pastigio-frame156.dts" "$LINUX/arch/arm64/boot/dts/"
-"${KMAKE[@]}" Image rk3326-pastigio-frame156.dtb
+"${KMAKE[@]}" rk3326-pastigio-frame156.dtb
+
+# The vendor U-Boot parses the device tree in the boot image's resource
+# for its own drivers and can't cope with ours, so it gets the stock one
+# (below), and the test kernel carries ours (patch 0006).
+DTB=$LINUX/arch/arm64/boot/dts/rk3326-pastigio-frame156.dtb
+"$LINUX/scripts/config" --file "$LINUX/.config" \
+  --enable ARM64_BUILTIN_DTB_OVERRIDE --set-str ARM64_BUILTIN_DTB_PATH "$DTB"
+"${KMAKE[@]}" olddefconfig >/dev/null
+# .incbin isn't dependency-tracked, so always relink the blob
+rm -f "$LINUX/arch/arm64/kernel/builtin_dtb.o"
+"${KMAKE[@]}" Image
 cp "$LINUX/arch/arm64/boot/Image" "$OUT/Image"
 cp "$LINUX/arch/arm64/boot/dts/rk3326-pastigio-frame156.dtb" "$OUT/"
 
@@ -121,16 +139,14 @@ cp "$REPO/scripts/test-initramfs/udhcpd.conf" "$RAMDISK/etc/"
 chmod +x "$RAMDISK/init"
 (cd "$RAMDISK" && find . | LC_ALL=C sort | cpio -o -H newc --quiet --owner=0:0) | gzip -9 > "$OUT/initramfs.cpio.gz"
 
-# Rockchip resource image: our device tree, plus the stock logos if given
-mkdir -p "$OUT/resource"
-cp "$OUT/rk3326-pastigio-frame156.dtb" "$OUT/resource/rk-kernel.dtb"
+# Rockchip resource image for U-Boot: the *stock* device tree and logos,
+# so U-Boot behaves exactly as it does for Android
+rm -rf "$OUT/resource"
+python3 -I "$REPO/scripts/rk-resource.py" unpack "$STOCK_RESOURCE" "$OUT/resource" >/dev/null
 RESOURCE_FILES=("$OUT/resource/rk-kernel.dtb")
-if [ -n "$STOCK_RESOURCE" ]; then
-  python3 -I "$REPO/scripts/rk-resource.py" unpack "$STOCK_RESOURCE" "$OUT/resource/stock" >/dev/null
-  for logo in logo.bmp logo_pcba.bmp; do
-    [ -f "$OUT/resource/stock/$logo" ] && RESOURCE_FILES+=("$OUT/resource/stock/$logo")
-  done
-fi
+for logo in logo.bmp logo_pcba.bmp; do
+  [ -f "$OUT/resource/$logo" ] && RESOURCE_FILES+=("$OUT/resource/$logo")
+done
 python3 -I "$REPO/scripts/rk-resource.py" pack "$OUT/resource.img" "${RESOURCE_FILES[@]}"
 
 # Same layout and load addresses as the stock recovery image

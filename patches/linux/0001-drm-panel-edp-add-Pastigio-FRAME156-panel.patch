@@ -1,0 +1,61 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] drm/panel: edp: add Pastigio FRAME156 panel
+
+The Pastigio FRAME156 photo frame drives a 15.6" 1920x1080 eDP panel
+through a Lontium LT8911EXB DSI-to-eDP bridge whose driver does not
+expose the AUX bus, so describe the panel with fixed timings. These
+match what the stock firmware sends over DSI, which the bridge needs.
+
+---
+--- a/drivers/gpu/drm/panel/panel-edp.c
++++ b/drivers/gpu/drm/panel/panel-edp.c
+@@ -1638,6 +1638,39 @@
+ 	},
+ };
+ 
++static const struct drm_display_mode pastigio_frame156_mode = {
++	.clock = 152600,
++	.hdisplay = 1920,
++	.hsync_start = 1920 + 140,
++	.hsync_end = 1920 + 140 + 40,
++	.htotal = 1920 + 140 + 40 + 140,
++	.vdisplay = 1080,
++	.vsync_start = 1080 + 20,
++	.vsync_end = 1080 + 20 + 10,
++	.vtotal = 1080 + 20 + 10 + 30,
++	.flags = DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC,
++};
++
++/*
++ * The 15.6" panel in the Pastigio FRAME156 photo frame. It's driven
++ * through a Lontium LT8911EXB DSI-to-eDP bridge whose driver doesn't
++ * expose the AUX bus, and the bridge has to be given the same timings the
++ * DSI host sends, so these are the timings from the stock firmware.
++ */
++static const struct panel_desc pastigio_frame156 = {
++	.modes = &pastigio_frame156_mode,
++	.num_modes = 1,
++	.bpc = 8,
++	.size = {
++		.width = 344,
++		.height = 194,
++	},
++	.delay = {
++		.hpd_absent = 200,
++		.unprepare = 500,
++	},
++};
++
+ static const struct of_device_id platform_of_match[] = {
+ 	{
+ 		/* Must be first */
+@@ -1720,6 +1753,9 @@
+ 		.compatible = "neweast,wjfh116008a",
+ 		.data = &neweast_wjfh116008a,
+ 	}, {
++		.compatible = "pastigio,frame156-panel",
++		.data = &pastigio_frame156,
++	}, {
+ 		.compatible = "samsung,lsn122dl01-c01",
+ 		.data = &samsung_lsn122dl01_c01,
+ 	}, {

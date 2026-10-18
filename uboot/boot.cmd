@@ -79,7 +79,7 @@ else
     setenv nerves_root PARTUUID=a1b2c3d4-0a0a-4e5f-8a6b-7c8d9e0f1a2b
 fi
 
-setenv bootargs "root=${nerves_root} rootfstype=squashfs rootwait ro console=tty1 console=ttyGS0,115200 ${nerves_extra_bootargs}"
+setenv bootargs "root=${nerves_root} rootfstype=squashfs rootwait ro console=tty1 console=ttyGS0,115200 consoleblank=0 ${nerves_extra_bootargs}"
 
 fatload ${devtype} ${devnum}:${distro_bootpart} 0x08300000 frame156.${nerves_fw_active}.dtb
 fatload ${devtype} ${devnum}:${distro_bootpart} 0x00280000 Image.${nerves_fw_active}
