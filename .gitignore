@@ -19,3 +19,4 @@ erl_crash.dump
 # Bring-up builds (scripts/build-test-kernel.sh)
 /.build/
 /build-system.log
+/build-firmware.log
