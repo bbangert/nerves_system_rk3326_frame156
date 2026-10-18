@@ -78,11 +78,14 @@ defmodule NervesSystemRk3326Frame156.MixProject do
 
   defp package_files do
     [
+      "board",
       "dts",
       "fwup_include",
       "linux",
       "patches",
       "rootfs_overlay",
+      "scripts/rk-images.py",
+      "scripts/rk-resource.py",
       "uboot",
       "Config.in",
       "external.mk",

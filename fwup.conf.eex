@@ -4,8 +4,9 @@
 # Edit `fwup.conf.eex` and run `mix generate_fwup_conf` to generate fwup.conf.
 #
 # The Rockchip boot chain (idbloader, U-Boot, trust) and the U-Boot logo
-# partition from the stock firmware are never written. See
-# fwup_include/fwup-common.conf for the layout.
+# partition from the stock firmware are never written. Slot A boots from the
+# "boot" partition, slot B from "recovery", selected by the Android
+# bootloader message in misc. See fwup_include/fwup-common.conf.
 #
 require-fwup-version="1.12.0"
 
@@ -20,25 +21,26 @@ slots = [
 # File resources are listed in the order that they are included in the .fw
 # file. This is important, since this is the order that they're written on a
 # firmware update due to the event driven nature of the update system.
-file-resource boot.scr {
-    host-path = "${NERVES_SYSTEM}/images/boot.scr"
-}
 file-resource uboot-env.bin {
     host-path = "${NERVES_SYSTEM}/images/uboot-env.bin"
     assert-size-lte = ${UBOOT_ENV_COUNT}
 }
-file-resource Image {
-    host-path = "${NERVES_SYSTEM}/images/Image"
+<%= for slot <- slots do %>file-resource boot-<%= slot.name %>.img {
+    host-path = "${NERVES_SYSTEM}/images/boot-<%= slot.name %>.img"
+    assert-size-lte = ${BOOT_<%= String.upcase(slot.name) %>_PART_COUNT}
 }
-file-resource frame156.dtb {
-    host-path = "${NERVES_SYSTEM}/images/rk3326-pastigio-frame156.dtb"
-}
-file-resource rootfs.img {
+<% end %>file-resource rootfs.img {
     host-path = ${ROOTFS}
 
     # Error out if the rootfs size exceeds the partition size
     assert-size-lte = ${ROOTFS_A_PART_COUNT}
 }
+# The bootloader messages switch slots, so they must come after everything
+# they make bootable
+<%= for slot <- slots do %>file-resource bcb-slot-<%= slot.name %>.bin {
+    host-path = "${NERVES_SYSTEM}/images/bcb-slot-<%= slot.name %>.bin"
+}
+<% end %>
 
 gpt gpt {
     guid = ${DISK_UUID}
@@ -72,29 +74,34 @@ gpt gpt {
         name = "resource"
     }
     partition 4 {
-        block-offset = ${BOOT_PART_OFFSET}
-        block-count = ${BOOT_PART_COUNT}
-        type = ${BOOT_PART_TYPE}
-        guid = ${BOOT_PART_GUID}
-        name = "nerves_boot"
-        # Legacy BIOS bootable: distro boot only scans flagged partitions
-        boot = true
+        block-offset = ${BOOT_A_PART_OFFSET}
+        block-count = ${BOOT_A_PART_COUNT}
+        type = ${BOOT_A_PART_TYPE}
+        guid = ${BOOT_A_PART_GUID}
+        name = "boot"
     }
     partition 5 {
+        block-offset = ${BOOT_B_PART_OFFSET}
+        block-count = ${BOOT_B_PART_COUNT}
+        type = ${BOOT_B_PART_TYPE}
+        guid = ${BOOT_B_PART_GUID}
+        name = "recovery"
+    }
+    partition 6 {
         block-offset = ${ROOTFS_A_PART_OFFSET}
         block-count = ${ROOTFS_A_PART_COUNT}
         type = ${LINUX_PART_TYPE}
         guid = ${ROOTFS_A_PART_GUID}
         name = "rootfs_a"
     }
-    partition 6 {
+    partition 7 {
         block-offset = ${ROOTFS_B_PART_OFFSET}
         block-count = ${ROOTFS_B_PART_COUNT}
         type = ${LINUX_PART_TYPE}
         guid = ${ROOTFS_B_PART_GUID}
         name = "rootfs_b"
     }
-    partition 7 {
+    partition 8 {
         block-offset = ${APP_PART_OFFSET}
         block-count = ${APP_PART_COUNT}
         type = ${LINUX_PART_TYPE}
@@ -118,12 +125,7 @@ task complete {
 
     on-init {
         gpt_write(gpt)
-
-        fat_mkfs(${BOOT_PART_OFFSET}, ${BOOT_PART_COUNT})
-        fat_setlabel(${BOOT_PART_OFFSET}, "NERVES_BOOT")
     }
-
-    on-resource boot.scr { fat_write(${BOOT_PART_OFFSET}, "boot.scr") }
 
     on-resource uboot-env.bin {
         # Boot to the A partition first
@@ -146,8 +148,8 @@ task complete {
         uboot_setenv(uboot-env, "a.nerves_fw_uuid", "\${FWUP_META_UUID}")
     }
 
-    on-resource Image { fat_write(${BOOT_PART_OFFSET}, "Image.a") }
-    on-resource frame156.dtb { fat_write(${BOOT_PART_OFFSET}, "frame156.a.dtb") }
+    on-resource boot-a.img { raw_write(${BOOT_A_PART_OFFSET}) }
+    on-resource bcb-slot-a.bin { raw_write(${MISC_PART_OFFSET}) }
 
     on-resource rootfs.img {
         # write to the first rootfs partition
@@ -155,6 +157,9 @@ task complete {
     }
 
     on-finish {
+        # Nothing bootable in slot B yet
+        raw_memset(${BOOT_B_PART_OFFSET}, 256, 0x00)
+
         # Clear out any old data in the B partition that might be mistaken for
         # a file system. This is mostly to avoid confusion in humans.
         raw_memset(${ROOTFS_B_PART_OFFSET}, 256, 0xff)
@@ -170,10 +175,6 @@ task upgrade.<%= slot.name %> {
     # This task upgrades the <%= String.upcase(slot.name) %> partition, so make sure we're running
     # on <%= String.upcase(slot.other) %>
     require-path-at-offset("/", ${ROOTFS_<%= String.upcase(slot.other) %>_PART_OFFSET})
-
-    # Require that the running version of firmware has been validated.
-    # If it has not, then failing back is not guaranteed to work.
-    require-uboot-variable(uboot-env, "nerves_fw_validated", "1")
 
     # Verify the expected platform/architecture
     require-uboot-variable(uboot-env, "<%= slot.other %>.nerves_fw_platform", "${NERVES_FW_PLATFORM}")
@@ -194,21 +195,18 @@ task upgrade.<%= slot.name %> {
         trim(${ROOTFS_<%= String.upcase(slot.name) %>_PART_OFFSET}, ${ROOTFS_<%= String.upcase(slot.name) %>_PART_COUNT})
     }
 
-    # Write the new kernel, device tree and rootfs. nerves_fw_active still
-    # points to the other slot, so an error or power failure during this part
-    # won't hurt anything.
-    on-resource boot.scr { fat_write(${BOOT_PART_OFFSET}, "boot.scr") }
-    on-resource Image {
-        delta-source-fat-offset=${BOOT_PART_OFFSET}
-        delta-source-fat-path="Image.<%= slot.other %>"
-        fat_write(${BOOT_PART_OFFSET}, "Image.<%= slot.name %>")
-    }
-    on-resource frame156.dtb { fat_write(${BOOT_PART_OFFSET}, "frame156.<%= slot.name %>.dtb") }
+    # Write the new boot image and rootfs. The bootloader message in misc
+    # still selects the other slot, so an error or power failure during this
+    # part won't hurt anything.
+    on-resource boot-<%= slot.name %>.img { raw_write(${BOOT_<%= String.upcase(slot.name) %>_PART_OFFSET}) }
     on-resource rootfs.img {
         delta-source-raw-offset=${ROOTFS_<%= String.upcase(slot.other) %>_PART_OFFSET}
         delta-source-raw-count=${ROOTFS_<%= String.upcase(slot.other) %>_PART_COUNT}
         raw_write(${ROOTFS_<%= String.upcase(slot.name) %>_PART_OFFSET})
     }
+
+    # Switch slots last: a single 2 KiB write
+    on-resource bcb-slot-<%= slot.name %>.bin { raw_write(${MISC_PART_OFFSET}) }
 
     on-finish {
         # Update firmware metadata
@@ -225,24 +223,13 @@ task upgrade.<%= slot.name %> {
         uboot_setenv(uboot-env, "<%= slot.name %>.nerves_fw_misc", ${NERVES_FW_MISC})
         uboot_setenv(uboot-env, "<%= slot.name %>.nerves_fw_uuid", "\${FWUP_META_UUID}")
 
-        # Switch over. boot.scr reverts if this firmware doesn't get validated.
         uboot_setenv(uboot-env, "nerves_fw_active", "<%= slot.name %>")
-        uboot_setenv(uboot-env, "nerves_fw_validated", "0")
-        uboot_setenv(uboot-env, "nerves_fw_booted", "0")
     }
 
     on-error {
     }
 }
 <% end %>
-task upgrade.unvalidated {
-    require-uboot-variable(uboot-env, "nerves_fw_validated", "0")
-
-    on-init {
-        error("Please validate the running firmware before upgrading it again.")
-    }
-}
-
 task upgrade.unexpected {
     require-uboot-variable(uboot-env, "a.nerves_fw_platform", "${NERVES_FW_PLATFORM}")
     require-uboot-variable(uboot-env, "a.nerves_fw_architecture", "${NERVES_FW_ARCHITECTURE}")

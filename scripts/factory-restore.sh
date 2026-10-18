@@ -3,7 +3,11 @@
 # (taken with --with-userdata), using rkdeveloptool in loader or mask-ROM
 # mode. Only writes, since the vendor rockusb refuses reads past 32 MiB.
 #
-#   scripts/factory-restore.sh backups/<serial>
+#   scripts/factory-restore.sh backups/<serial> [--with-idbloader]
+#
+# SKIP="p16-userdata ..." leaves the named images out, for partitions known
+# to be unchanged (Nerves never writes Android's userdata area beyond the
+# app partition header, which lies in the system partition).
 #
 # Writes every partition image at its stock offset, then the backup GPT at
 # the end of the disk, then the primary GPT. The idbloader (sectors
@@ -69,6 +73,9 @@ restore() { # name start
 }
 
 while read -r name start; do
+  case " ${SKIP:-} " in
+    *" $name "*) echo "Skipping $name"; continue ;;
+  esac
   restore "$name" "$start"
 done <<< "$LAYOUT"
 

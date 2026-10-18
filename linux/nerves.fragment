@@ -43,3 +43,9 @@ CONFIG_PANIC_TIMEOUT=10
 CONFIG_WATCHDOG=y
 CONFIG_DW_WATCHDOG=y
 CONFIG_WATCHDOG_NOWAYOUT=y
+
+# The vendor U-Boot parses (and fixes up) the device tree it boots with, and
+# only copes with the stock one, so the kernel carries ours. The path is
+# relative to the kernel tree; external.mk builds the DTB first.
+CONFIG_ARM64_BUILTIN_DTB_OVERRIDE=y
+CONFIG_ARM64_BUILTIN_DTB_PATH="arch/arm64/boot/dts/rk3326-pastigio-frame156.dtb"

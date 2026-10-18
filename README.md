@@ -3,9 +3,9 @@
 A [Nerves](https://nerves-project.org) system for the Pastigio FRAME156, a
 15.6" Frameo photo frame built on the Rockchip RK3326.
 
-**Status: bring-up.** The mainline kernel boots on hardware (as a one-shot
-test image from the recovery partition). The Nerves system itself hasn't
-been installed yet.
+**Status: bring-up.** Nerves boots on unit 1: IEx over ssh on the
+USB-C network, display working. A/B upgrades over the network haven't been
+tested yet.
 
 | Feature              | Status |
 |----------------------|--------|
@@ -32,21 +32,33 @@ firmware.
 
 The stock Rockchip boot chain stays untouched: the DDR init and miniloader
 (idbloader), BL31 (`trust`), the vendor U-Boot (`uboot`), and the `resource`
-partition U-Boot reads its boot logo from. The firmware only rewrites the GPT
-and the areas after the first 36 MiB. See
+partition. The firmware only rewrites the GPT, the bootloader message at the
+start of `misc`, and the areas after the first 36 MiB. See
 [fwup_include/fwup-common.conf](fwup_include/fwup-common.conf) for the layout.
 
-The vendor U-Boot tries to boot Android first, and falls back to distro boot,
-which finds `boot.scr` on the bootable `nerves_boot` FAT partition. The
-vendor U-Boot's own environment isn't usable, so
-[uboot/boot.cmd](uboot/boot.cmd) keeps the Nerves A/B metadata in a raw U-Boot
-environment block at sector 73728. It does the usual Nerves validation and
-revert logic there.
+The vendor U-Boot has no persistent environment, and its distro boot doesn't
+work on these units, so Nerves boots the way Android does. U-Boot's
+`boot_android` loads an Android boot image (header v0) from the partition
+named `boot`, or from `recovery` while the bootloader message in `misc` says
+`boot-recovery`. Those are slots A and B. Each boot image holds:
 
-The frame has no accessible serial console, so the boot script also counts
-boots that never reach userspace. After three of them, the next boot drops
-into Rockchip loader mode (rockusb) so `rkdeveloptool` can reflash it. erlinit
-resets the counter once the root filesystem is up.
+- the kernel, which carries our device tree (`ARM64_BUILTIN_DTB_OVERRIDE`,
+  patch 0006), since U-Boot only copes with the stock one
+- an empty initramfs, and a command line naming that slot's rootfs
+- a Rockchip resource image with the *stock* device tree
+  (`board/rk-kernel.dtb`). U-Boot builds its own drivers from it; without
+  one, its PMIC driver doesn't probe and it drops into loader or recovery mode.
+
+An upgrade writes the inactive slot's boot image and rootfs, then switches
+slots with one 2 KiB write to `misc`. The U-Boot environment block at sector
+73728 only holds firmware metadata for nerves_runtime.
+
+U-Boot also rewrites the first `console=` to `ttyFIQ0` and appends
+`init=/init`, so the rootfs has `/init` linked to erlinit.
+
+Recovery without tools: hold the power button while plugging in power, with
+the USB-C cable to a computer, for loader mode. See
+[docs/recovery.md](docs/recovery.md).
 
 ## Getting into the frame
 
@@ -114,6 +126,17 @@ and so on).
 
 ## Installing
 
-Not tested yet. The plan is to boot the vendor U-Boot into mass-storage mode
-(`reboot ums`), and run `fwup` against the eMMC from the host. `fwup` only
-writes the GPT and the Nerves partitions, so the boot chain is safe.
+Put the frame in loader mode (`adb reboot loader` from Android, or the
+power-button escape), then:
+
+```sh
+scripts/install-rockusb.sh example/_build/frame156_dev/nerves/images/frame_example.fw
+rkdeveloptool rd
+```
+
+The example app in `example/` authorizes its own SSH key (`example/.ssh/`,
+git-ignored). The frame appears on a USB network (VintageNetDirect); log in
+with `ssh -i example/.ssh/frame156_ed25519 nerves.local`.
+
+To go back to Android: `scripts/factory-restore.sh backups/<serial>` from
+loader mode.
