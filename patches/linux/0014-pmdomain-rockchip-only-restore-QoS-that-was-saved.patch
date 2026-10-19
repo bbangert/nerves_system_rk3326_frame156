@@ -1,0 +1,47 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] pmdomain: rockchip: only restore QoS that was saved
+
+The QoS registers are saved when a domain powers down and restored when
+it powers up. A domain that is off at boot is powered up before
+anything was saved, so its QoS registers were overwritten with zeros
+(priority 0, no regulation) for the rest of the boot. On the PX30 this
+hits the GPU, whose domain is off until panfrost loads. Keep the
+hardware defaults instead, as Rockchip's vendor kernel does.
+---
+ drivers/pmdomain/rockchip/pm-domains.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/pmdomain/rockchip/pm-domains.c b/drivers/pmdomain/rockchip/pm-domains.c
+index 490bbb1..2099d21 100644
+--- a/drivers/pmdomain/rockchip/pm-domains.c
++++ b/drivers/pmdomain/rockchip/pm-domains.c
+@@ -97,6 +97,7 @@ struct rockchip_pm_domain {
+ 	int num_qos;
+ 	struct regmap **qos_regmap;
+ 	u32 *qos_save_regs[MAX_QOS_REGS_NUM];
++	bool qos_saved;
+ 	int num_clks;
+ 	struct clk_bulk_data *clks;
+ 	struct device_node *node;
+@@ -460,6 +461,7 @@ static int rockchip_pmu_save_qos(struct rockchip_pm_domain *pd)
+ 			    QOS_EXTCONTROL,
+ 			    &pd->qos_save_regs[4][i]);
+ 	}
++	pd->qos_saved = true;
+ 	return 0;
+ }
+ 
+@@ -467,6 +469,13 @@ static int rockchip_pmu_restore_qos(struct rockchip_pm_domain *pd)
+ {
+ 	int i;
+ 
++	/*
++	 * A domain that was off at boot comes up with the hardware's QoS
++	 * defaults; there is nothing saved to put back yet.
++	 */
++	if (!pd->qos_saved)
++		return 0;
++
+ 	for (i = 0; i < pd->num_qos; i++) {
+ 		regmap_write(pd->qos_regmap[i],
+ 			     QOS_PRIORITY,
