@@ -1,0 +1,41 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] PM / devfreq: px30: start with the userspace governor
+
+Nothing changes the DDR rate at boot: the loader's rate stays until a
+rate is written to the userspace governor, so a bad switch can be
+undone by a power cycle.
+---
+ drivers/devfreq/Kconfig    | 1 +
+ drivers/devfreq/px30_dmc.c | 6 +++++-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/devfreq/Kconfig b/drivers/devfreq/Kconfig
+index fe9ccaa..f3a4aef 100644
+--- a/drivers/devfreq/Kconfig
++++ b/drivers/devfreq/Kconfig
+@@ -146,6 +146,7 @@ config ARM_PX30_DMC_DEVFREQ
+ 		(COMPILE_TEST && HAVE_ARM_SMCCC)
+ 	select DEVFREQ_EVENT_ROCKCHIP_DFI
+ 	select DEVFREQ_GOV_SIMPLE_ONDEMAND
++	select DEVFREQ_GOV_USERSPACE
+ 	select PM_DEVFREQ_EVENT
+ 	select PM_OPP
+ 	help
+diff --git a/drivers/devfreq/px30_dmc.c b/drivers/devfreq/px30_dmc.c
+index e7e258c..3d70d79 100644
+--- a/drivers/devfreq/px30_dmc.c
++++ b/drivers/devfreq/px30_dmc.c
+@@ -430,8 +430,12 @@ static int px30_dmc_probe(struct platform_device *pdev)
+ 		.initial_freq	= freq,
+ 	};
+ 
++	/*
++	 * Keep the loader's rate until userspace asks for another one; the
++	 * ondemand tunables are still passed for a later governor switch.
++	 */
+ 	dmc->devfreq = devm_devfreq_add_device(dev, &dmc->profile,
+-					       DEVFREQ_GOV_SIMPLE_ONDEMAND,
++					       DEVFREQ_GOV_USERSPACE,
+ 					       &dmc->ondemand);
+ 	if (IS_ERR(dmc->devfreq))
+ 		return PTR_ERR(dmc->devfreq);

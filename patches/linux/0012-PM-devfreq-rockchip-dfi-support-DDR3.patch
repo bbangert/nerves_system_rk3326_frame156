@@ -1,0 +1,35 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] PM / devfreq: rockchip-dfi: support DDR3
+
+The PX30 in the Pastigio FRAME156 has DDR3. The DDR monitor counts DDR3
+with none of its LPDDR mode bits set (as Rockchip's vendor driver does),
+and DDR3 uses 8-beat bursts.
+---
+ drivers/devfreq/event/rockchip-dfi.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/devfreq/event/rockchip-dfi.c b/drivers/devfreq/event/rockchip-dfi.c
+index 57bc13a..0e30101 100644
+--- a/drivers/devfreq/event/rockchip-dfi.c
++++ b/drivers/devfreq/event/rockchip-dfi.c
+@@ -124,6 +124,12 @@ static int rockchip_dfi_ddrtype_to_ctrl(struct rockchip_dfi *dfi, u32 *ctrl)
+ 	u32 ddrmon_ver;
+ 
+ 	switch (dfi->ddr_type) {
++	case ROCKCHIP_DDRTYPE_DDR3:
++		/* DDR3 is the monitor's default mode: no LPDDR bit set */
++		*ctrl = FIELD_PREP_WM16(DDRMON_CTRL_LPDDR23, 0) |
++			FIELD_PREP_WM16(DDRMON_CTRL_LPDDR4, 0) |
++			FIELD_PREP_WM16(DDRMON_CTRL_LPDDR5, 0);
++		break;
+ 	case ROCKCHIP_DDRTYPE_LPDDR2:
+ 	case ROCKCHIP_DDRTYPE_LPDDR3:
+ 		*ctrl = FIELD_PREP_WM16(DDRMON_CTRL_LPDDR23, 1) |
+@@ -684,6 +690,7 @@ static int rockchip_ddr_perf_init(struct rockchip_dfi *dfi)
+ 	hrtimer_setup(&dfi->timer, rockchip_dfi_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+ 
+ 	switch (dfi->ddr_type) {
++	case ROCKCHIP_DDRTYPE_DDR3:
+ 	case ROCKCHIP_DDRTYPE_LPDDR2:
+ 	case ROCKCHIP_DDRTYPE_LPDDR3:
+ 		dfi->burst_len = 8;

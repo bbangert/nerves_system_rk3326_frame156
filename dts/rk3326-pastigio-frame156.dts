@@ -121,6 +121,47 @@
 		};
 	};
 
+	/*
+	 * DDR rate scaling through BL31 (patches 0010-0013). The loader
+	 * starts DDR3 at 333 MHz; stock Android runs 400 MHz. The stock
+	 * table also has 528/666/786 MHz, all disabled, so 400 MHz is this
+	 * board's maximum. The driver starts with the userspace governor
+	 * and leaves the rate alone until one is written.
+	 */
+	dfi: dfi@ff610000 {
+		compatible = "rockchip,px30-dfi";
+		reg = <0x0 0xff610000 0x0 0x400>;
+		rockchip,pmu = <&pmugrf>;
+	};
+
+	dmc: dmc {
+		compatible = "rockchip,px30-dmc";
+		interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "complete";
+		devfreq-events = <&dfi>;
+		operating-points-v2 = <&dmc_opp_table>;
+		center-supply = <&vdd_logic>;
+	};
+
+	dmc_opp_table: opp-table-dmc {
+		compatible = "operating-points-v2";
+
+		opp-194000000 {
+			opp-hz = /bits/ 64 <194000000>;
+			opp-microvolt = <950000>;
+		};
+
+		opp-328000000 {
+			opp-hz = /bits/ 64 <328000000>;
+			opp-microvolt = <950000>;
+		};
+
+		opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <950000>;
+		};
+	};
+
 	speaker_amp: audio-amplifier {
 		compatible = "simple-audio-amplifier";
 		enable-gpios = <&gpio3 RK_PC3 GPIO_ACTIVE_HIGH>;
