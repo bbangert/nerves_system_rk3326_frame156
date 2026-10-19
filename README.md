@@ -100,6 +100,10 @@ take RGB only, can't scale, and have an `alpha` property, so the display
 controller can blend a full-screen image over the primary plane at the
 panel's 60 Hz with no GPU work (a photo crossfade, for example).
 
+No plane can rotate or mirror (neither can stock's driver), so when the
+frame stands in portrait or upside down, rotate the content itself: the GPU
+for the UI, and photos as they're prepared.
+
 ### Memory clock
 
 The loader starts the DDR3 at 332 MHz. Stock Android runs it at 400 MHz,
