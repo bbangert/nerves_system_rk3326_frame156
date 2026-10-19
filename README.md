@@ -50,7 +50,7 @@ system, with SSH, Wi-Fi and the accelerometer set up.
 | Peripheral    | Chip                      | Bus          | Address | Linux device |
 |---------------|---------------------------|--------------|---------|--------------|
 | SoC           | Rockchip RK3326, 4x Cortex-A35 | —       | —       | cpufreq 600 MHz–1.3 GHz |
-| Memory        | 1 GB DRAM                 | —            | —       | — |
+| Memory        | 1 GB DDR3                 | —            | —       | `/sys/class/devfreq/dmc` (194/328/400 MHz) |
 | Storage       | 32 GB eMMC                | eMMC         | —       | `/dev/mmcblk0` |
 | Display       | 1920x1080 eDP panel via Lontium LT8911EXB | MIPI DSI, I2C2 | 0x29 | `/dev/dri/card0` (rockchip-drm) |
 | Backlight     | PWM                       | PWM1         | —       | `/sys/class/backlight/backlight/` |
@@ -90,6 +90,30 @@ included as a quick check:
 ```elixir
 System.cmd("kmscube", ["-D", "/dev/dri/card0"])
 ```
+
+### Display planes
+
+The display controller has three planes, stacked in a fixed order (an
+immutable `zpos` property): the primary plane (win0, scales, RGB and YUV),
+an overlay (win1) and a cursor plane (win2). The overlay and cursor planes
+take RGB only, can't scale, and have an `alpha` property, so the display
+controller can blend a full-screen image over the primary plane at the
+panel's 60 Hz with no GPU work (a photo crossfade, for example).
+
+### Memory clock
+
+The loader starts the DDR3 at 332 MHz. Stock Android runs it at 400 MHz,
+and full-screen GPU blends go noticeably faster there. The kernel's DDR
+driver starts with the `userspace` governor and doesn't change the rate on
+its own, so every boot starts at 332 MHz. To switch:
+
+```elixir
+File.write!("/sys/class/devfreq/dmc/userspace/set_freq", "400000000")
+```
+
+The example app does this once the firmware has validated
+(`FrameExample.DdrRate`). 400 MHz is the highest rate stock enables on this
+board; the driver offers nothing above it.
 
 ## Touchscreen
 
@@ -298,6 +322,14 @@ Patches in [`patches/linux/`](patches/linux):
 - `0008` SDIO quirks for the RK915 Wi-Fi
 - `0009` exports the PX30/RK3326 I2S1 source clock, so audio can run it at
   600 MHz
+- `0010`, `0011` PX30 DDR rate scaling through BL31 (from ROCKNIX), with
+  the board's stock DDR timings
+- `0012` DDR3 support for the DDR monitor (DFI)
+- `0013` the DDR driver starts with the `userspace` governor, so nothing
+  changes the rate at boot
+- `0014` keeps a power domain's QoS defaults on its first power-up instead
+  of zeroing them (this gave the GPU bus priority 0)
+- `0015` plane alpha and zpos for the PX30 display controller
 
 [`patches/buildroot/`](patches/buildroot) builds Mesa's Panfrost driver
 without LLVM and Clang for the target.

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+* DDR rate scaling (PX30 DMC through BL31) with the board's stock DDR
+  timings. Starts at the loader's 332 MHz with the `userspace` governor;
+  400 MHz (the stock rate) speeds up full-screen GPU blends
+* Plane alpha and zpos on the display controller, so the overlay plane can
+  crossfade over the primary plane at 60 Hz without the GPU
+* Fix power domains zeroing their QoS registers on the first power-up (the
+  GPU ran at bus priority 0)
+* Example app switches DDR to 400 MHz once the firmware has validated
+
 ## v0.1.0
 
 Initial release.

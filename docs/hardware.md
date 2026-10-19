@@ -10,6 +10,14 @@ numeric phandles back into labels. GPIO numbers below are
 ## SoC and memory
 
 - Rockchip RK3326 (4x Cortex-A35, CPU part `0xd04`), about 1 GB RAM.
+- The RAM is DDR3 (PMUGRF OS_REG2 = 0x00006281: 1 rank, 32-bit). The loader
+  starts it at 333 MHz (dpll 664 MHz). Stock Android raises it to 400 MHz
+  (dpll 800 MHz) through BL31 and keeps it there: its DMC table also lists
+  528, 666 and 786 MHz, but all are disabled. BL31 (v2.3-332-g7af4354ca,
+  DRAM DVFS version 0x106) takes the DDR timings from a shared page; ours
+  are the stock `ddr_timing` values (patch 0011).
+- QoS: nothing in the stock boot chain sets GPU, VOP or eMMC QoS, so they
+  run at the hardware defaults (GPU priority 0x101, VOP 0x303, eMMC 0x101).
 - The stock kernel is arm64 (Linux 4.4.138), even though Android
   userspace is 32-bit.
 - The stock device tree is based on Rockchip's

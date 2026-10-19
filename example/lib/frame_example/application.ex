@@ -35,7 +35,8 @@ defmodule FrameExample.Application do
     defp target_children() do
       [
         # Children for all targets except host
-        FrameExample.Orientation
+        FrameExample.Orientation,
+        FrameExample.DdrRate
       ]
     end
   end
