@@ -75,8 +75,12 @@ jobs:
             nerves-dl-${{ github.ref_name }}
             nerves-dl-main
             nerves-dl
+      # On a fresh checkout the first deps.get only fetches Hex packages; the
+      # second runs nerves.deps.get, which downloads the toolchain artifact.
       - name: Fetch Mix dependencies
-        run: mix deps.get
+        run: |
+          mix deps.get
+          mix deps.get
       - name: Validate Hex package
         run: mix hex.build
       - name: Restore ccache
