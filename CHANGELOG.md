@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.2.0
 
+* Fix Wi-Fi failing under load: the RK915 driver batched twice as many
+  frames per command as the stock driver, so writes failed with `-EBUSY`
+  and the chip's firmware restarted 12-18 times a minute. It now uses the
+  stock limits (8 frames per command, 32 in flight)
 * `schedutil` is the default CPU governor (was `performance`), so the CPU
   idles at 600 MHz and ramps up to 1296 MHz under load. 1296 MHz is this
   chip's real top speed: stock's 1416/1512 MHz are clamped to 1296 MHz
