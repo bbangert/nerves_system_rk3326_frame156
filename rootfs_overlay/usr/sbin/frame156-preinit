@@ -24,4 +24,10 @@ load_rk915() {
 # Loading the driver downloads its firmware, so do it in the background
 load_rk915 </dev/null >/dev/null 2>&1 &
 
+# After a failed trial, U-Boot boots the validated slot again but leaves the
+# environment describing the trial. Put it back before nerves_runtime reads
+# it (see the reconcile task in fwup-ops.conf). Takes about 50 ms. -U, as
+# nerves_runtime passes too: never unmount anything (/root is mounted).
+fwup -q -U -t reconcile -d /dev/mmcblk0 /usr/share/fwup/ops.fw </dev/null >/dev/null 2>&1
+
 exit 0

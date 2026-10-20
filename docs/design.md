@@ -29,7 +29,12 @@ An upgrade writes the other slot's boot image and rootfs, then reboots with
 the GPT so the new slot's partition is named `boot`. If the new firmware
 panics, hangs (the heart watchdog resets it), or loses power before that,
 the next boot is the old firmware again; a hang before the watchdog starts
-needs a power cycle. The U-Boot environment block at sector 73728 only
+needs a power cycle. U-Boot doesn't touch the environment when it boots the
+old slot, so `frame156-preinit` runs the `reconcile` task in `ops.fw` before
+Erlang starts: when the running slot is the one named `boot`, it sets
+`nerves_fw_active` and `nerves_fw_validated` back, and nerves_runtime sees
+validated firmware from the start. On a slot that's on trial it changes
+nothing. The U-Boot environment block at sector 73728 only
 holds firmware metadata for nerves_runtime and fwup (`nerves_fw_boot_slot`
 names the validated slot).
 

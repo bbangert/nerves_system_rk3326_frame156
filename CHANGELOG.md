@@ -18,6 +18,11 @@
   partitions too; `--list` shows the panel configs. The README walks
   through backing up, checking the panel and extracting
 * The Hex package no longer includes a locally extracted touch firmware
+* After a failed trial falls back to the previous firmware, the U-Boot
+  environment is put back at boot (`reconcile` in `ops.fw`, run by
+  `frame156-preinit`). Before, `Nerves.Runtime.firmware_valid?/0` reported
+  the old, validated firmware as unvalidated until something validated it
+  again
 
 ## v0.1.0
 
