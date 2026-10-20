@@ -1,0 +1,30 @@
+From: Ben Bangert <100193+bbangert@users.noreply.github.com>
+Subject: [PATCH] rk915: limit tx batching to the firmware's 8 frames per command
+
+rei512 commit 80423b1 raised MAX_SUBFRAMES_IN_AMPDU_HT from 8 to
+MAX_TX_CMDS (16). That doubles both the frames sent per tx command
+(max_tx_cmds) and the frames allowed in flight (MAX_FW_TX_PKGS, 4x) to
+16 and 64. The stock FRAME156 driver (/vendor/lib/modules/wifi/rk915.ko)
+uses 8 and 32: proc_init stores max_tx_cmds = 8 (0x153d4/0x153dc) and
+get_outstanding_pkts tests against 31 and caps at 32 (cmp #0x1f at
+0xa57c, mov #0x20 at 0xa5b8); this driver builds cmp #0x3f / mov #0x40.
+
+With 16 and 64 the chip holds DAT0 busy for more than half a second
+once a burst of small frames arrives (TCP ACKs during a download), so
+the mmc core fails the next CMD53 with -EBUSY and the driver restarts
+the firmware: 12-18 restarts a minute under load. With the stock limits:
+320 back-to-back ~300 KB downloads in a minute, no failures, no
+restarts.
+
+---
+--- a/shared/descriptors.h
++++ b/shared/descriptors.h
+@@ -28,6 +28,6 @@
+ 
+ /* Max no of sub frames in an AMPDU */
+-/* the tx command carries up to MAX_TX_CMDS subframe descriptors */
+-#define MAX_SUBFRAMES_IN_AMPDU_HT MAX_TX_CMDS
++/* the firmware takes 8 frames per tx command and 4x that in flight */
++#define MAX_SUBFRAMES_IN_AMPDU_HT 8
+ #define MAX_FW_TX_PKGS (4*MAX_SUBFRAMES_IN_AMPDU_HT)
+ 
