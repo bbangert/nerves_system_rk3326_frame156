@@ -16,6 +16,21 @@ numeric phandles back into labels. GPIO numbers below are
   528, 666 and 786 MHz, but all are disabled. BL31 (v2.3-332-g7af4354ca,
   DRAM DVFS version 0x106) takes the DDR timings from a shared page; ours
   are the stock `ddr_timing` values (patch 0011).
+- CPU: the stock table lists 408 MHz to 1512 MHz (408, 600, 816, 1008,
+  1200, 1248, 1296, 1416, 1512) on both units, with each step's voltage
+  picked from the chip's grade. Unit 1 (bin 0, `leakage=12`,
+  `pvtm-volt-sel=1`) never really runs above 1296 MHz: the BSP's AVS mode
+  (`rockchip,avs = <1>`, bin/irdrop scale 13) makes its PLL driver program
+  the 1296 MHz APLL settings for any higher request while reporting the
+  requested rate (stock Image 0x84f794-0x84f7a4). The stock clk summary
+  shows it: `armclk` 1512 MHz, but `scmi_clk_cpu`, which BL31 computes
+  from the APLL registers, 1296 MHz. A real 1416 MHz hangs this chip
+  under mainline even at 1.35 V. We keep mainline's 600-1296 MHz table:
+  stock's 408 and 1248 MHz would run at the same voltage as 600 and
+  1296 MHz, so the energy model marks them inefficient and `schedutil`
+  skips them.
+- Unit 2 (ZXK0HN7563) is a PX30S: its cpus use BL31's SCMI clock and a
+  separate table (1512 MHz at 1.15 V), which mainline doesn't support yet.
 - QoS: nothing in the stock boot chain sets GPU, VOP or eMMC QoS, so they
   run at the hardware defaults (GPU priority 0x101, VOP 0x303, eMMC 0x101).
 - The stock kernel is arm64 (Linux 4.4.138), even though Android

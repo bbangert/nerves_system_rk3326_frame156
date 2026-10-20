@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* `schedutil` is the default CPU governor (was `performance`), so the CPU
+  idles at 600 MHz and ramps up to 1296 MHz under load. 1296 MHz is this
+  chip's real top speed: stock's 1416/1512 MHz are clamped to 1296 MHz
 * DDR rate scaling (PX30 DMC through BL31) with the board's stock DDR
   timings. Starts at the loader's 332 MHz with the `userspace` governor;
   400 MHz (the stock rate) speeds up full-screen GPU blends

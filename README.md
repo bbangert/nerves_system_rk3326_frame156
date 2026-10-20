@@ -49,7 +49,7 @@ system, with SSH, Wi-Fi and the accelerometer set up.
 
 | Peripheral    | Chip                      | Bus          | Address | Linux device |
 |---------------|---------------------------|--------------|---------|--------------|
-| SoC           | Rockchip RK3326, 4x Cortex-A35 | —       | —       | cpufreq 600 MHz–1.3 GHz |
+| SoC           | Rockchip RK3326, 4x Cortex-A35 | —       | —       | cpufreq 600 MHz–1.3 GHz (`schedutil`) |
 | Memory        | 1 GB DDR3                 | —            | —       | `/sys/class/devfreq/dmc` (194/328/400 MHz) |
 | Storage       | 32 GB eMMC                | eMMC         | —       | `/dev/mmcblk0` |
 | Display       | 1920x1080 eDP panel via Lontium LT8911EXB | MIPI DSI, I2C2 | 0x29 | `/dev/dri/card0` (rockchip-drm) |

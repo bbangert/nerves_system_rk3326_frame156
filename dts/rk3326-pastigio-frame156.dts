@@ -191,6 +191,14 @@
 	};
 };
 
+/*
+ * px30.dtsi's CPU table (600-1296 MHz) is kept as is. Stock lists 1416 and
+ * 1512 MHz too, but on this chip's grade (bin 0, L1) its clock driver
+ * programs the APLL for 1296 MHz and only reports the higher rate; a real
+ * 1416 MHz hangs it. Stock's 408 and 1248 MHz would share their
+ * neighbours' voltages, so the energy model marks them inefficient and
+ * schedutil never picks them.
+ */
 &cpu0 {
 	cpu-supply = <&vdd_arm>;
 };
