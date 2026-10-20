@@ -36,6 +36,10 @@ verifying each one against a hash computed on the frame. It also saves the
 live device tree, kernel config and logs that the port is based on. Run it
 before writing anything.
 
+Keep the backup: once Nerves is installed, it's the only copy of the stock
+kernel, which is where the touchscreen firmware comes from (see the
+README's Touchscreen section).
+
 ## Bring-up: test kernels via the recovery partition
 
 `scripts/build-test-kernel.sh` builds the kernel and a small busybox

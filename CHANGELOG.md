@@ -13,6 +13,11 @@
 * Fix power domains zeroing their QoS registers on the first power-up (the
   GPU ran at bus priority 0)
 * Example app switches DDR to 400 MHz once the firmware has validated
+* `scripts/extract-touch-fw.py` finds the touch firmware by panel name, so
+  it works with any stock kernel build and with the boot and recovery
+  partitions too; `--list` shows the panel configs. The README walks
+  through backing up, checking the panel and extracting
+* The Hex package no longer includes a locally extracted touch firmware
 
 ## v0.1.0
 

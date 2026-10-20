@@ -121,17 +121,65 @@ board; the driver offers nothing above it.
 
 ## Touchscreen
 
-The Silead GSL3676 needs a firmware file that can't be redistributed, so
-it isn't part of the prebuilt system. Extract it from a backup of the frame's
-stock Android kernel (see [docs/bring-up.md](docs/bring-up.md)):
+The Silead GSL3676 needs a firmware file that can't be redistributed (it
+comes with no license), so it isn't in the prebuilt system or the Hex
+package. Every frame's stock Android kernel has a copy: extract it from a
+backup of your frame and add it to your own project.
 
-```bash
-scripts/extract-touch-fw.py backups/<unit>/parts/p5-kernel.img.gz \
-    gsl3676.fw
-```
+1. **Back up the frame while it still runs Android**, before the first
+   install (see [Installing](#installing)). The install overwrites the
+   stock kernel, boot and recovery partitions, which are the only places
+   the frame keeps this firmware. Enable Frameo **Settings → About → Beta →
+   ADB Access**, connect the frame with a USB-A-to-C cable, then:
 
-Put the file in your project at `rootfs_overlay/lib/firmware/silead/gsl3676.fw`.
-The script checks the result against the known-good firmware's hash.
+   ```bash
+   scripts/backup.sh        # writes backups/<serial>/
+   ```
+
+   The firmware comes from `parts/p5-kernel.img.gz`; `p6-boot` and
+   `p7-recovery` hold the same kernel and work too.
+
+2. **Check the frame has this touch panel.** The stock kernel log names the
+   panel config its driver uses:
+
+   ```bash
+   grep gsl_name backups/<serial>/info/dmesg.txt
+   # ... [tp-gsl] gsl_name=Kingvina_FG1509_2_GSL3676_HuiY
+   ```
+
+   If the frame had been up a long time, the boot lines may have rotated
+   out of the log; `info/live.dts` (written when `dtc` is installed) has
+   the same name in the touchscreen node's `gsl_name` property. Any other
+   name, or no `gslX680-pad` node, means a different touchscreen than the
+   one this system is set up for.
+   `scripts/extract-touch-fw.py --list` shows every config in the kernel,
+   and `--panel NAME` extracts another one, but the device tree's
+   touchscreen node would need changes as well.
+
+3. **Extract the firmware into your project's overlay** (only Python 3 is
+   needed):
+
+   ```bash
+   scripts/extract-touch-fw.py backups/<serial>/parts/p5-kernel.img.gz \
+       ../my_app/rootfs_overlay/lib/firmware/silead/gsl3676.fw
+   ```
+
+   The script finds the panel's firmware by name, so it works with any
+   stock kernel build, and only writes it if its SHA-256 matches the tested
+   firmware (`20d3351a49725d0a…`). It prints the full hash on success.
+
+4. **Keep it private.** Add `/rootfs_overlay/lib/firmware/silead/` to your
+   project's `.gitignore`, and don't publish firmware images built with it,
+   since they contain it too.
+
+5. **Build and install your firmware**, then check on the frame:
+
+   ```elixir
+   File.read!("/proc/bus/input/devices") =~ "silead_ts"
+   ```
+
+   If it's `false`, `dmesg` shows `silead_ts 1-0040: Firmware request error
+   -2` when the file is missing from `/lib/firmware/silead/`.
 
 The touchscreen then shows up as a standard multitouch input device named
 `silead_ts`. It reports positions from 0–1792 on X and 0–1152 on Y, already
@@ -302,6 +350,10 @@ mix compile
 
 Projects that depend on a local checkout build it automatically. Use a
 `path:` dependency with `nerves: [compile: true]`, as the example app does.
+A local build also picks up the touch firmware from this checkout's
+`rootfs_overlay/lib/firmware/silead/` if you put it there (it's ignored by
+git and left out of the Hex package). Don't publish an artifact built that
+way; CI builds from a clean checkout, so its releases never include it.
 
 CI builds the system on every push. Pushing a `vX.Y.Z` tag that matches
 `VERSION` drafts a GitHub release with the artifact and the matching

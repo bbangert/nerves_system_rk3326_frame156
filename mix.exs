@@ -90,7 +90,10 @@ defmodule NervesSystemRk3326Frame156.MixProject do
       "linux",
       "package",
       "patches",
-      "rootfs_overlay",
+      # Not all of rootfs_overlay: a local build may have the touch
+      # firmware in lib/firmware/silead, which can't be redistributed.
+      "rootfs_overlay/etc",
+      "rootfs_overlay/usr",
       "scripts/rk-images.py",
       "scripts/rk-resource.py",
       "uboot",
